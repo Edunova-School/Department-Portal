@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect} from "react";
 import {
   Search,
   FileText,
@@ -10,218 +10,12 @@ import {
   ChevronDown,
   AlertCircle,
 } from "lucide-react";
-
-type ResultStatus = "Pending Review" | "Approved" | "Returned";
-
-interface StudentScore {
-  matricNumber: string;
-  studentName: string;
-  caScore: number;
-  examScore: number;
-  total: number;
-  grade: string;
-}
-
-interface ResultSubmission {
-  id: number;
-  courseCode: string;
-  courseTitle: string;
-  programme: string;
-  level: string;
-  semester: string;
-  session: string;
-  lecturer: string;
-  submissionDate: string;
-  status: ResultStatus;
-  students: StudentScore[];
-  feedback?: string;
-}
-
-const initialResults: ResultSubmission[] = [
-  {
-    id: 1,
-    courseCode: "SEN 101",
-    courseTitle: "Introduction to Software Engineering",
-    programme: "Software Engineering",
-    level: "100",
-    semester: "First Semester",
-    session: "2026/2027",
-    lecturer: "Dr. Samuel Adeyemi",
-    submissionDate: "2026-10-20",
-    status: "Pending Review",
-    students: [
-      {
-        matricNumber: "EDU/SE/2026/001",
-        studentName: "David Akinola",
-        caScore: 25,
-        examScore: 60,
-        total: 85,
-        grade: "A",
-      },
-      {
-        matricNumber: "EDU/SE/2026/002",
-        studentName: "Esther Oladipo",
-        caScore: 22,
-        examScore: 55,
-        total: 77,
-        grade: "A",
-      },
-      {
-        matricNumber: "EDU/SE/2026/003",
-        studentName: "Daniel Okafor",
-        caScore: 18,
-        examScore: 48,
-        total: 66,
-        grade: "B",
-      },
-      {
-        matricNumber: "EDU/SE/2026/004",
-        studentName: "Mary Johnson",
-        caScore: 15,
-        examScore: 42,
-        total: 57,
-        grade: "C",
-      },
-    ],
-  },
-  {
-    id: 2,
-    courseCode: "CSC 201",
-    courseTitle: "Data Structures and Algorithms",
-    programme: "Computer Science",
-    level: "200",
-    semester: "First Semester",
-    session: "2026/2027",
-    lecturer: "Dr. Grace Oladipo",
-    submissionDate: "2026-10-21",
-    status: "Pending Review",
-    students: [
-      {
-        matricNumber: "EDU/CS/2025/014",
-        studentName: "Michael Adewale",
-        caScore: 20,
-        examScore: 54,
-        total: 74,
-        grade: "A",
-      },
-      {
-        matricNumber: "EDU/CS/2025/015",
-        studentName: "Samuel Ojo",
-        caScore: 17,
-        examScore: 45,
-        total: 62,
-        grade: "B",
-      },
-      {
-        matricNumber: "EDU/CS/2025/016",
-        studentName: "Faith Adebayo",
-        caScore: 12,
-        examScore: 38,
-        total: 50,
-        grade: "C",
-      },
-    ],
-  },
-  {
-    id: 3,
-    courseCode: "IFT 301",
-    courseTitle: "Database Management Systems",
-    programme: "Information Technology",
-    level: "300",
-    semester: "First Semester",
-    session: "2026/2027",
-    lecturer: "Mr. Michael Akinyemi",
-    submissionDate: "2026-10-18",
-    status: "Approved",
-    students: [
-      {
-        matricNumber: "EDU/IT/2024/008",
-        studentName: "Grace Adebayo",
-        caScore: 24,
-        examScore: 58,
-        total: 82,
-        grade: "A",
-      },
-      {
-        matricNumber: "EDU/IT/2024/009",
-        studentName: "Peter James",
-        caScore: 19,
-        examScore: 43,
-        total: 62,
-        grade: "B",
-      },
-      {
-        matricNumber: "EDU/IT/2024/010",
-        studentName: "Esther Ojo",
-        caScore: 16,
-        examScore: 40,
-        total: 56,
-        grade: "C",
-      },
-    ],
-  },
-  {
-    id: 4,
-    courseCode: "SEN 302",
-    courseTitle: "Software Requirements Engineering",
-    programme: "Software Engineering",
-    level: "300",
-    semester: "First Semester",
-    session: "2026/2027",
-    lecturer: "Mr. Joseph Ojo",
-    submissionDate: "2026-10-22",
-    status: "Returned",
-    feedback: "Please verify the scores for two students before resubmission.",
-    students: [
-      {
-        matricNumber: "EDU/SE/2024/009",
-        studentName: "Joseph Ojo",
-        caScore: 20,
-        examScore: 55,
-        total: 75,
-        grade: "A",
-      },
-      {
-        matricNumber: "EDU/SE/2024/010",
-        studentName: "Deborah James",
-        caScore: 14,
-        examScore: 41,
-        total: 55,
-        grade: "C",
-      },
-    ],
-  },
-  {
-    id: 5,
-    courseCode: "CSC 401",
-    courseTitle: "Artificial Intelligence",
-    programme: "Computer Science",
-    level: "400",
-    semester: "Second Semester",
-    session: "2026/2027",
-    lecturer: "Mr. Joseph Ojo",
-    submissionDate: "2026-10-23",
-    status: "Pending Review",
-    students: [
-      {
-        matricNumber: "EDU/CS/2023/011",
-        studentName: "Daniel Olawale",
-        caScore: 23,
-        examScore: 57,
-        total: 80,
-        grade: "A",
-      },
-      {
-        matricNumber: "EDU/CS/2023/012",
-        studentName: "Deborah Johnson",
-        caScore: 18,
-        examScore: 46,
-        total: 64,
-        grade: "B",
-      },
-    ],
-  },
-];
+import {
+  getHodResultsOverview,
+  getHodResultFilterOptions,
+  getHodResults,
+  getHodResultDetails
+} from "../lib/api";
 
 const statusStyles: Record<ResultStatus, string> = {
   "Pending Review": "bg-amber-50 text-amber-700",
@@ -229,104 +23,289 @@ const statusStyles: Record<ResultStatus, string> = {
   Returned: "bg-red-50 text-red-700",
 };
 
-const gradeStyles: Record<string, string> = {
-  A: "bg-green-50 text-green-700",
-  B: "bg-blue-50 text-blue-700",
-  C: "bg-amber-50 text-amber-700",
-  D: "bg-orange-50 text-orange-700",
-  E: "bg-orange-50 text-orange-700",
-  F: "bg-red-50 text-red-700",
+
+type ApiResultStatus =
+  | "PENDING_REVIEW"
+  | "APPROVED"
+  | "RETURNED";
+
+type ResultStatus = "Pending Review" | "Approved" | "Returned";
+
+interface ResultSubmission {
+  submission_id: string;
+  course_offering_id: string;
+
+  course: {
+    id: string;
+    code: string;
+    title: string;
+    credit_units: number;
+    level: number | string;
+  };
+
+  programme: {
+    id: string;
+    name: string;
+    code: string;
+  };
+
+  lecturer: {
+    id: string | null;
+    name: string;
+  };
+
+  academic_session: {
+    id: string;
+    name: string;
+  };
+
+  semester: {
+    id: string;
+    name: string;
+  };
+
+  student_count: number;
+  status: ApiResultStatus;
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  review_comment: string | null;
+}
+interface StudentScore {
+  registration_id: string;
+  student: {
+    id: string;
+    matric_number: string;
+    first_name: string;
+    last_name: string;
+    full_name: string;
+    current_level: number | string;
+    programme: {
+      id: string;
+      name: string;
+      code: string;
+    };
+  };
+  result: {
+    ca_score: number | null;
+    exam_score: number | null;
+    total_score: number | null;
+    grade: string | null;
+    grade_points: number | null;
+    result_status: string;
+  };
+}
+interface ResultDetails {
+  result_summary: {
+    total_students: number;
+    graded_results: number;
+    pending_results: number;
+    absent_results: number;
+  };
+  review: {
+    reviewed_by: string | null;
+    reviewed_at: string | null;
+    review_comment: string | null;
+  };
+  students: StudentScore[];
+}
+const mapResultStatus = (
+  status: ApiResultStatus
+): ResultStatus => {
+  switch (status) {
+    case "PENDING_REVIEW":
+      return "Pending Review";
+    case "APPROVED":
+      return "Approved";
+    case "RETURNED":
+      return "Returned";
+    default:
+      return "Pending Review";
+  }
 };
 
 const Results = () => {
-  const [results, setResults] = useState<ResultSubmission[]>(initialResults);
+  const [results, setResults] = useState<ResultSubmission[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [programmeFilter, setProgrammeFilter] = useState("All Programmes");
   const [semesterFilter, setSemesterFilter] = useState("All Semesters");
 
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState("");
   const [selectedResult, setSelectedResult] =
     useState<ResultSubmission | null>(null);
   const [showReturnForm, setShowReturnForm] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [resultDetails, setResultDetails] = useState<ResultDetails | null>(null);
+const [overview, setOverview] = useState({
+  all_submissions: 0,
+  requires_review: 0,
+  returned_results: 0,
+  successfully_reviewed: 0,
+});
 
-  const pendingCount = results.filter(
-    (result) => result.status === "Pending Review"
-  ).length;
+const [programmes, setProgrammes] = useState<
+  { id: string; name: string; code: string }[]
+>([]);
 
-  const approvedCount = results.filter(
-    (result) => result.status === "Approved"
-  ).length;
+const [semesters, setSemesters] = useState<
+  { id: string; name: string; order: number }[]
+>([]);
 
-  const returnedCount = results.filter(
-    (result) => result.status === "Returned"
-  ).length;
+const [loading, setLoading] = useState(true);
+const [fetchError, setFetchError] = useState("");
+useEffect(() => {
+  const fetchResultsData = async () => {
+    setLoading(true);
+    setFetchError("");
 
-  const totalStudents = results.reduce(
-    (total, result) => total + result.students.length,
-    0
-  );
+    const [overviewResult, filtersResult, submissionsResult] =
+      await Promise.allSettled([
+        getHodResultsOverview("2026/2027"),
+        getHodResultFilterOptions("2026/2027"),
+        getHodResults({
+          academic_year: "2026/2027",
+          page: 1,
+          per_page: 10,
+        }),
+      ]);
 
-  const filteredResults = useMemo(() => {
-    return results.filter((result) => {
-      const search = searchTerm.toLowerCase();
+    if (overviewResult.status === "fulfilled") {
+      const statistics = overviewResult.value?.data?.statistics;
 
-      const matchesSearch =
-        result.courseCode.toLowerCase().includes(search) ||
-        result.courseTitle.toLowerCase().includes(search) ||
-        result.lecturer.toLowerCase().includes(search);
-
-      const matchesStatus =
-        statusFilter === "All Statuses" || result.status === statusFilter;
-
-      const matchesProgramme =
-        programmeFilter === "All Programmes" ||
-        result.programme === programmeFilter;
-
-      const matchesSemester =
-        semesterFilter === "All Semesters" ||
-        result.semester === semesterFilter;
-
-      return (
-        matchesSearch && matchesStatus && matchesProgramme && matchesSemester
+      if (statistics) {
+        setOverview(statistics);
+      }
+    } else {
+      console.error(
+        "HOD RESULTS OVERVIEW ERROR:",
+        overviewResult.reason
       );
-    });
-  }, [results, searchTerm, statusFilter, programmeFilter, semesterFilter]);
+    }
 
-  const updateResultStatus = (
-    resultId: number,
-    status: ResultStatus,
-    comment?: string
-  ) => {
-    setResults((current) =>
-      current.map((result) =>
-        result.id === resultId
-          ? { ...result, status, feedback: comment }
-          : result
-      )
+    if (filtersResult.status === "fulfilled") {
+      const filterData = filtersResult.value?.data;
+
+      setProgrammes(filterData?.programmes ?? []);
+      setSemesters(filterData?.semesters ?? []);
+    } else {
+      console.error(
+        "HOD RESULT FILTER OPTIONS ERROR:",
+        filtersResult.reason
+      );
+    }
+
+if (submissionsResult.status === "fulfilled") {
+  const submissionData = submissionsResult.value?.data;
+
+  const items: ResultSubmission[] = submissionData?.items ?? [];
+
+  setResults(items);
+
+  
+} else {
+  console.error(
+    "HOD RESULT SUBMISSIONS ERROR:",
+    submissionsResult.reason
+  );
+}
+
+    if (
+      overviewResult.status === "rejected" &&
+      filtersResult.status === "rejected" &&
+      submissionsResult.status === "rejected"
+    ) {
+      setFetchError("Unable to load results data. Please try again.");
+    }
+
+    setLoading(false);
+  };
+
+  fetchResultsData();
+}, []);
+
+
+ const pendingCount = overview.requires_review;
+const approvedCount = overview.successfully_reviewed;
+const returnedCount = overview.returned_results;
+const filteredResults = useMemo(() => {
+  return results.filter((result) => {
+    const search = searchTerm.toLowerCase();
+
+    const matchesSearch =
+      result.course.code.toLowerCase().includes(search) ||
+      result.course.title.toLowerCase().includes(search) ||
+      result.lecturer.name.toLowerCase().includes(search);
+
+    const matchesStatus =
+      statusFilter === "All Statuses" ||
+      mapResultStatus(result.status) === statusFilter;
+
+    const matchesProgramme =
+      programmeFilter === "All Programmes" ||
+      result.programme.name === programmeFilter;
+
+    const matchesSemester =
+      semesterFilter === "All Semesters" ||
+      result.semester.name === semesterFilter;
+
+    return (
+      matchesSearch &&
+      matchesStatus &&
+      matchesProgramme &&
+      matchesSemester
     );
+  });
+}, [
+  results,
+  searchTerm,
+  statusFilter,
+  programmeFilter,
+  semesterFilter,
+]);
 
-    setSelectedResult((current) =>
-      current?.id === resultId
-        ? { ...current, status, feedback: comment }
-        : current
-    );
-  };
+const openResultDetails = async (result: ResultSubmission) => {
+  setSelectedResult(result);
+  setResultDetails(null);
+  setDetailsLoading(true);
+  setDetailsError("");
 
-  const approveResult = () => {
-    if (!selectedResult) return;
+  try {
+    const response = await getHodResultDetails(result.submission_id);
 
-    updateResultStatus(selectedResult.id, "Approved");
-    setShowReturnForm(false);
-  };
+    console.log("HOD RESULT DETAILS:", response);
 
-  const returnResult = () => {
-    if (!selectedResult || !feedback.trim()) return;
+    if (response?.data) {
+      setResultDetails(response.data);
+    }
+  } catch (error) {
+    console.error("HOD RESULT DETAILS ERROR:", error);
+    setDetailsError("Unable to load individual result details.");
+  } finally {
+    setDetailsLoading(false);
+  }
+};
 
-    updateResultStatus(selectedResult.id, "Returned", feedback.trim());
-    setFeedback("");
-    setShowReturnForm(false);
-  };
+const approveResult = () => {
+  if (!selectedResult) return;
+
+  console.log(
+    "RESULT TO APPROVE:",
+    selectedResult.submission_id,
+    selectedResult.course_offering_id
+  );
+};
+
+const returnResult = () => {
+  if (!selectedResult || !feedback.trim()) return;
+
+  console.log(
+    "RESULT TO RETURN:",
+    selectedResult.submission_id,
+    selectedResult.course_offering_id,
+    feedback.trim()
+  );
+};
 
   const closeReview = () => {
     setSelectedResult(null);
@@ -376,7 +355,7 @@ const Results = () => {
             <span className="text-xs text-gray-400">All submissions</span>
           </div>
           <p className="mt-4 text-2xl font-bold text-[#0B1524]">
-            {results.length}
+            {overview.all_submissions}
           </p>
           <p className="mt-1 text-sm text-gray-500">Result Submissions</p>
         </div>
@@ -466,9 +445,7 @@ const Results = () => {
                 setValue: setProgrammeFilter,
                 options: [
                   "All Programmes",
-                  "Software Engineering",
-                  "Computer Science",
-                  "Information Technology",
+                  ...programmes.map((programme) => programme.name),
                 ],
               },
               {
@@ -476,8 +453,7 @@ const Results = () => {
                 setValue: setSemesterFilter,
                 options: [
                   "All Semesters",
-                  "First Semester",
-                  "Second Semester",
+                  ...semesters.map((semester) => semester.name),
                 ],
               },
             ].map((filter, index) => (
@@ -526,297 +502,337 @@ const Results = () => {
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-gray-100">
-              {filteredResults.length > 0 ? (
-                filteredResults.map((result) => (
-                  <tr key={result.id} className="transition hover:bg-gray-50/70">
-                    <td className="px-5 py-4">
-                      <p className="font-semibold text-[#0B1524]">
-                        {result.courseCode}
-                      </p>
-                      <p className="mt-1 text-sm text-gray-500">
-                        {result.courseTitle}
-                      </p>
-                    </td>
+              <tbody className="divide-y divide-gray-100">
+                {loading ? (
+                    <tr>
+                      <td colSpan={7} className="px-5 py-12 text-center text-sm text-gray-500">
+                        Loading result submissions...
+                      </td>
+                    </tr>
+                  ) : fetchError ? (
+                    <tr>
+                      <td colSpan={7} className="px-5 py-12 text-center text-sm text-red-600">
+                        {fetchError}
+                      </td>
+                    </tr>
+                  ) : filteredResults.length > 0 ? (
+                  filteredResults.map((result) => (
+                    <tr
+                      key={result.submission_id}
+                      className="transition hover:bg-gray-50/70"
+                    >
+                      <td className="px-5 py-4">
+                        <p className="font-semibold text-[#0B1524]">
+                          {result.course.code}
+                        </p>
+                        <p className="mt-1 text-sm text-gray-500">
+                          {result.course.title}
+                        </p>
+                      </td>
 
-                    <td className="px-5 py-4">
-                      <p className="text-sm font-medium text-gray-700">
-                        {result.programme}
-                      </p>
-                      <p className="mt-1 text-xs text-gray-500">
-                        {result.level} Level
-                      </p>
-                    </td>
+                      <td className="px-5 py-4">
+                        <p className="text-sm font-medium text-gray-700">
+                          {result.programme.name}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {result.course.level} Level
+                        </p>
+                      </td>
 
-                    <td className="px-5 py-4 text-sm text-gray-600">
-                      {result.lecturer}
-                    </td>
+                      <td className="px-5 py-4 text-sm text-gray-600">
+                        {result.lecturer.name}
+                      </td>
 
-                    <td className="px-5 py-4 text-sm text-gray-600">
-                      {result.students.length}
-                    </td>
+                      <td className="px-5 py-4 text-sm text-gray-600">
+                        {result.student_count}
+                      </td>
 
-                    <td className="px-5 py-4 text-sm text-gray-600">
-                      {new Date(
-                        `${result.submissionDate}T00:00:00`
-                      ).toLocaleDateString("en-GB", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </td>
+                      <td className="px-5 py-4 text-sm text-gray-600">
+                        {result.submitted_at
+                          ? new Date(result.submitted_at).toLocaleDateString("en-GB", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })
+                          : "—"}
+                      </td>
 
-                    <td className="px-5 py-4">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[result.status]}`}
-                      >
-                        {result.status}
-                      </span>
-                    </td>
+                      <td className="px-5 py-4">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                            statusStyles[mapResultStatus(result.status)]
+                          }`}
+                        >
+                          {mapResultStatus(result.status)}
+                        </span>
+                      </td>
 
-                    <td className="px-5 py-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedResult(result);
-                          setShowReturnForm(false);
-                          setFeedback("");
-                        }}
-                        className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-[#1E3A8A] transition hover:border-[#1E3A8A] hover:bg-blue-50"
-                      >
-                        <Eye size={15} />
-                        Review
-                      </button>
+                      <td className="px-5 py-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            openResultDetails(result);
+                            setShowReturnForm(false);
+                            setFeedback("");
+                          }}
+                          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-[#1E3A8A] transition hover:border-[#1E3A8A] hover:bg-blue-50"
+                        >
+                          <Eye size={15} />
+                          Review
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-5 py-12 text-center text-sm text-gray-500"
+                    >
+                      No result submissions match your search or filters.
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-5 py-12 text-center text-sm text-gray-500"
-                  >
-                    No result submissions match your search or filters.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex flex-col gap-2 border-t border-gray-100 px-5 py-4 text-sm text-gray-500 sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              Showing {filteredResults.length} of {results.length} submissions
+            </p>
+            <p>Student score records will appear with submitted results</p>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-2 border-t border-gray-100 px-5 py-4 text-sm text-gray-500 sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            Showing {filteredResults.length} of {results.length} submissions
-          </p>
-          <p>{totalStudents} student score records in sample data</p>
-        </div>
-      </div>
+        {/* Result Review Modal */}
+        {selectedResult && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+            <div className="my-auto w-full max-w-4xl overflow-hidden rounded-xl bg-white shadow-xl">
+              <div className="flex items-start justify-between border-b border-gray-100 p-5">
+                <div>
+                  <h2 className="text-lg font-semibold text-[#0B1524]">
+                    Review Course Results
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {selectedResult.course.code} — {selectedResult.course.title}
+                  </p>
+                </div>
 
-      {/* Result Review Modal */}
-      {selectedResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
-          <div className="my-auto w-full max-w-4xl overflow-hidden rounded-xl bg-white shadow-xl">
-            <div className="flex items-start justify-between border-b border-gray-100 p-5">
-              <div>
-                <h2 className="text-lg font-semibold text-[#0B1524]">
-                  Review Course Results
-                </h2>
-                <p className="mt-1 text-sm text-gray-500">
-                  {selectedResult.courseCode} — {selectedResult.courseTitle}
-                </p>
+                <button
+                  type="button"
+                  onClick={closeReview}
+                  className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                  aria-label="Close modal"
+                >
+                  <X size={20} />
+                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={closeReview}
-                className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-                aria-label="Close modal"
-              >
-                <X size={20} />
-              </button>
-            </div>
+              <div className="max-h-[75vh] space-y-5 overflow-y-auto p-5">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div>
+                    <p className="text-xs text-gray-500">Programme</p>
+                    <p className="mt-1 text-sm font-medium text-[#0B1524]">
+                      {selectedResult.programme.name}
+                    </p>
+                  </div>
 
-            <div className="max-h-[75vh] space-y-5 overflow-y-auto p-5">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div>
-                  <p className="text-xs text-gray-500">Programme</p>
-                  <p className="mt-1 text-sm font-medium text-[#0B1524]">
-                    {selectedResult.programme}
-                  </p>
+                  <div>
+                    <p className="text-xs text-gray-500">Level</p>
+                    <p className="mt-1 text-sm font-medium text-[#0B1524]">
+                       {selectedResult.course.level} Level
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-gray-500">Semester</p>
+                    <p className="mt-1 text-sm font-medium text-[#0B1524]">
+                      {selectedResult.semester.name}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-gray-500">Lecturer</p>
+                    <p className="mt-1 text-sm font-medium text-[#0B1524]">
+                      {selectedResult.lecturer.name}
+                    </p>
+                  </div>
                 </div>
 
-                <div>
-                  <p className="text-xs text-gray-500">Level</p>
-                  <p className="mt-1 text-sm font-medium text-[#0B1524]">
-                    {selectedResult.level} Level
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-gray-500">Semester</p>
-                  <p className="mt-1 text-sm font-medium text-[#0B1524]">
-                    {selectedResult.semester}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-gray-500">Lecturer</p>
-                  <p className="mt-1 text-sm font-medium text-[#0B1524]">
-                    {selectedResult.lecturer}
-                  </p>
-                </div>
-              </div>
-
-              <div>
+               <div>
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="font-semibold text-[#0B1524]">
-                    Student Scores
-                  </h3>
+                  <h3 className="font-semibold text-[#0B1524]">Student Scores</h3>
+
                   <span className="text-sm text-gray-500">
-                    {selectedResult.students.length} students
+                    {resultDetails?.result_summary.total_students ??
+                      selectedResult.student_count} students
                   </span>
                 </div>
 
-                <div className="overflow-x-auto rounded-lg border border-gray-200">
-                  <table className="w-full min-w-[650px] text-left">
-                    <thead className="bg-gray-50">
-                      <tr className="text-xs font-semibold uppercase text-gray-500">
-                        <th className="px-4 py-3">Student</th>
-                        <th className="px-4 py-3">CA / 30</th>
-                        <th className="px-4 py-3">Exam / 70</th>
-                        <th className="px-4 py-3">Total / 100</th>
-                        <th className="px-4 py-3">Grade</th>
-                      </tr>
-                    </thead>
-
-                    <tbody className="divide-y divide-gray-100">
-                      {selectedResult.students.map((student) => (
-                        <tr key={student.matricNumber}>
-                          <td className="px-4 py-3">
-                            <p className="text-sm font-medium text-[#0B1524]">
-                              {student.studentName}
-                            </p>
-                            <p className="mt-1 text-xs text-gray-500">
-                              {student.matricNumber}
-                            </p>
-                          </td>
-
-                          <td className="px-4 py-3 text-sm text-gray-600">
-                            {student.caScore}
-                          </td>
-
-                          <td className="px-4 py-3 text-sm text-gray-600">
-                            {student.examScore}
-                          </td>
-
-                          <td className="px-4 py-3 text-sm font-semibold text-[#0B1524]">
-                            {student.total}
-                          </td>
-
-                          <td className="px-4 py-3">
-                            <span
-                              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${gradeStyles[student.grade] ?? "bg-gray-100 text-gray-600"}`}
-                            >
-                              {student.grade}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">Submission status</span>
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-medium ${statusStyles[selectedResult.status]}`}
-                >
-                  {selectedResult.status}
-                </span>
-              </div>
-
-              {selectedResult.feedback && (
-                <div className="rounded-lg border border-red-100 bg-red-50 p-4">
-                  <p className="flex items-center gap-2 text-sm font-semibold text-red-700">
-                    <AlertCircle size={16} />
-                    Previous Review Feedback
-                  </p>
-                  <p className="mt-2 text-sm text-red-700">
-                    {selectedResult.feedback}
-                  </p>
-                </div>
-              )}
-
-              {showReturnForm && (
-                <div className="space-y-3 rounded-lg border border-gray-200 p-4">
-                  <label
-                    htmlFor="result-feedback"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Reason for returning this result
-                  </label>
-                  <textarea
-                    id="result-feedback"
-                    value={feedback}
-                    onChange={(e) => setFeedback(e.target.value)}
-                    rows={3}
-                    placeholder="Explain what the lecturer needs to correct..."
-                    className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-[#1E3A8A]"
-                  />
-
-                  <div className="flex justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowReturnForm(false);
-                        setFeedback("");
-                      }}
-                      className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
-                    >
-                      Cancel
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={returnResult}
-                      disabled={!feedback.trim()}
-                      className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Return to Lecturer
-                    </button>
+                {detailsLoading ? (
+                  <div className="rounded-lg border border-gray-200 px-5 py-10 text-center">
+                    <p className="text-sm text-gray-500">
+                      Loading student results...
+                    </p>
                   </div>
-                </div>
-              )}
+                ) : detailsError ? (
+                  <div className="rounded-lg border border-red-200 px-5 py-10 text-center">
+                    <p className="text-sm text-red-600">{detailsError}</p>
+                  </div>
+                ) : resultDetails?.students?.length ? (
+                  <div className="overflow-x-auto rounded-lg border border-gray-200">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-gray-50 text-gray-600">
+                        <tr>
+                          <th className="px-4 py-3 font-medium">Matric Number</th>
+                          <th className="px-4 py-3 font-medium">Student Name</th>
+                          <th className="px-4 py-3 font-medium">CA</th>
+                          <th className="px-4 py-3 font-medium">Exam</th>
+                          <th className="px-4 py-3 font-medium">Total</th>
+                          <th className="px-4 py-3 font-medium">Grade</th>
+                          <th className="px-4 py-3 font-medium">Status</th>
+                        </tr>
+                      </thead>
 
-              {selectedResult.status === "Pending Review" &&
-                !showReturnForm && (
-                  <div className="flex flex-col gap-3 border-t border-gray-100 pt-5 sm:flex-row sm:justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setShowReturnForm(true)}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50"
-                    >
-                      <RotateCcw size={16} />
-                      Return for Correction
-                    </button>
+                      <tbody className="divide-y divide-gray-100">
+                        {resultDetails.students.map((student) => (
+                          <tr key={student.registration_id}>
+                            <td className="px-4 py-3 font-medium text-[#0B1524]">
+                              {student.student.matric_number}
+                            </td>
 
-                    <button
-                      type="button"
-                      onClick={approveResult}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1E3A8A] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#14263F]"
-                    >
-                      <CheckCircle2 size={16} />
-                      Approve Results
-                    </button>
+                            <td className="px-4 py-3 text-gray-700">
+                              {student.student.full_name}
+                            </td>
+
+                            <td className="px-4 py-3 text-gray-700">
+                              {student.result.ca_score ?? "—"}
+                            </td>
+
+                            <td className="px-4 py-3 text-gray-700">
+                              {student.result.exam_score ?? "—"}
+                            </td>
+
+                            <td className="px-4 py-3 font-medium text-[#0B1524]">
+                              {student.result.total_score ?? "—"}
+                            </td>
+
+                            <td className="px-4 py-3 text-gray-700">
+                              {student.result.grade ?? "—"}
+                            </td>
+
+                            <td className="px-4 py-3 text-gray-700">
+                              {student.result.result_status}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-gray-200 px-5 py-10 text-center">
+                    <FileText size={28} className="mx-auto text-gray-400" />
+
+                    <p className="mt-3 text-sm font-medium text-gray-700">
+                      No student results available.
+                    </p>
+
+                    <p className="mt-1 text-xs text-gray-500">
+                      Student records will appear here when available.
+                    </p>
                   </div>
                 )}
+              </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">Submission status</span>
+                  <span className={`rounded-full px-3 py-1 text-xs font-medium ${statusStyles[mapResultStatus(selectedResult.status)]}`}>
+                    {mapResultStatus(selectedResult.status)}
+                  </span>
+                </div>
+
+                {selectedResult.review_comment && (
+                  <div className="rounded-lg border border-red-100 bg-red-50 p-4">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-red-700">
+                      <AlertCircle size={16} />
+                      Previous Review Feedback
+                    </p>
+
+                    <p className="mt-2 text-sm text-red-700">
+                      {selectedResult.review_comment}
+                    </p>
+                  </div>
+                )}
+
+                {showReturnForm && (
+                  <div className="space-y-3 rounded-lg border border-gray-200 p-4">
+                    <label
+                      htmlFor="result-feedback"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Reason for returning this result
+                    </label>
+                    <textarea
+                      id="result-feedback"
+                      value={feedback}
+                      onChange={(e) => setFeedback(e.target.value)}
+                      rows={3}
+                      placeholder="Explain what the lecturer needs to correct..."
+                      className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-[#1E3A8A]"
+                    />
+
+                    <div className="flex justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowReturnForm(false);
+                          setFeedback("");
+                        }}
+                        className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={returnResult}
+                        disabled={!feedback.trim()}
+                        className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Return to Lecturer
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {selectedResult.status === "PENDING_REVIEW" &&
+                  !showReturnForm && (
+                    <div className="flex flex-col gap-3 border-t border-gray-100 pt-5 sm:flex-row sm:justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setShowReturnForm(true)}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50"
+                      >
+                        <RotateCcw size={16} />
+                        Return for Correction
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={approveResult}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1E3A8A] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#14263F]"
+                      >
+                        <CheckCircle2 size={16} />
+                        Approve Results
+                      </button>
+                    </div>
+                  )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
-};
+        )}
+      </div>
+    );
+  };
 
-export default Results;
+  export default Results;

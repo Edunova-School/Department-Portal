@@ -1,5 +1,9 @@
-
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  getHodStudentsOverview,
+  getHodStudents,
+  getHodAttendanceFilterOptions,
+} from "../lib/api";
 import {
   Users,
   UserCheck,
@@ -10,8 +14,17 @@ import {
   ChevronDown,
 } from "lucide-react";
 
-type StudentStatus = "Active" | "Deferred" | "Graduated";
-
+interface StudentStatistics {
+  total_students: number;
+  active_students: number;
+  graduated_students: number;
+  deferred_students: number;
+}
+interface ProgrammeOption {
+  id: string;
+  name: string;
+  code: string;
+}
 interface Student {
   id: string;
   name: string;
@@ -19,153 +32,94 @@ interface Student {
   email: string;
   programme: string;
   level: string;
-  status: StudentStatus;
+  status: "Active" | "Deferred" | "Graduated";
 }
 
-const mockStudents: Student[] = [
-  {
-    id: "1",
-    name: "Daniel Adewale",
-    matricNumber: "SE/2023/001",
-    email: "daniel.adewale@example.com",
-    programme: "B.Sc. Software Engineering",
-    level: "300",
-    status: "Active",
-  },
-  {
-    id: "2",
-    name: "Esther Oladipo",
-    matricNumber: "SE/2023/002",
-    email: "esther.oladipo@example.com",
-    programme: "B.Sc. Software Engineering",
-    level: "300",
-    status: "Active",
-  },
-  {
-    id: "3",
-    name: "Michael Akinyemi",
-    matricNumber: "CS/2022/014",
-    email: "michael.akinyemi@example.com",
-    programme: "B.Sc. Computer Science",
-    level: "400",
-    status: "Active",
-  },
-  {
-    id: "4",
-    name: "Deborah Johnson",
-    matricNumber: "IT/2024/008",
-    email: "deborah.johnson@example.com",
-    programme: "B.Sc. Information Technology",
-    level: "200",
-    status: "Active",
-  },
-  {
-    id: "5",
-    name: "Samuel Adekunle",
-    matricNumber: "SE/2025/011",
-    email: "samuel.adekunle@example.com",
-    programme: "B.Sc. Software Engineering",
-    level: "100",
-    status: "Active",
-  },
-  {
-    id: "6",
-    name: "Grace Olawale",
-    matricNumber: "CS/2021/019",
-    email: "grace.olawale@example.com",
-    programme: "B.Sc. Computer Science",
-    level: "500",
-    status: "Graduated",
-  },
-  {
-    id: "7",
-    name: "Joseph Ojo",
-    matricNumber: "IT/2023/023",
-    email: "joseph.ojo@example.com",
-    programme: "B.Sc. Information Technology",
-    level: "300",
-    status: "Deferred",
-  },
-  {
-    id: "8",
-    name: "Precious Adebayo",
-    matricNumber: "SE/2022/018",
-    email: "precious.adebayo@example.com",
-    programme: "B.Sc. Software Engineering",
-    level: "400",
-    status: "Active",
-  },
-];
+const statusToApiValue: Record<string, string> = {
+  Active: "ACTIVE",
+  Deferred: "DEFERRED",
+  Graduated: "GRADUATED",
+};
+export default function Students() {
+  const [students, setStudents] = useState<Student[]>([]);
 
-const programmes = [
-  "B.Sc. Software Engineering",
-  "B.Sc. Computer Science",
-  "B.Sc. Information Technology",
-];
+const [statistics, setStatistics] = useState<StudentStatistics>({
+  total_students: 0,
+  active_students: 0,
+  graduated_students: 0,
+  deferred_students: 0,
+});
+const [programmes, setProgrammes] = useState<ProgrammeOption[]>([]);
+const [levels, setLevels] = useState<number[]>([]);
 
-const levels = ["100", "200", "300", "400", "500"];
-
-const statusStyles: Record<StudentStatus, string> = {
+const statusStyles: Record<Student["status"], string> = {
   Active: "bg-green-50 text-green-700",
   Deferred: "bg-amber-50 text-amber-700",
   Graduated: "bg-blue-50 text-blue-700",
 };
-
-export default function Students() {
-  const [students] = useState<Student[]>(mockStudents);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProgramme, setSelectedProgramme] = useState("All Programmes");
   const [selectedLevel, setSelectedLevel] = useState("All Levels");
   const [selectedStatus, setSelectedStatus] = useState("All Statuses");
+  useEffect(() => {
+  const fetchStudents = async () => {
+    try {
+      const [
+        overviewResponse,
+        filterOptionsResponse,
+      ] = await Promise.all([
+        getHodStudentsOverview(),
+        getHodAttendanceFilterOptions(),
+      ]);
+      if (filterOptionsResponse.success) {
+        setProgrammes(filterOptionsResponse.data.programmes);
+        setLevels(filterOptionsResponse.data.levels);
+      }
 
-  const filteredStudents = useMemo(() => {
-    return students.filter((student) => {
-      const search = searchTerm.toLowerCase().trim();
+      if (overviewResponse.success) {
+        setStatistics(overviewResponse.data.statistics);
+      }
+    } catch (error) {
+      console.error("FAILED TO FETCH STUDENTS:", error);
+    }
+  };
 
-      const matchesSearch =
-        !search ||
-        student.name.toLowerCase().includes(search) ||
-        student.matricNumber.toLowerCase().includes(search) ||
-        student.email.toLowerCase().includes(search);
+  fetchStudents();
+}, []);
+useEffect(() => {
+  const fetchFilteredStudents = async () => {
+    try {
+      const response = await getHodStudents({
+        programme_id:
+          selectedProgramme === "All Programmes"
+            ? undefined
+            : selectedProgramme,
 
-      const matchesProgramme =
-        selectedProgramme === "All Programmes" ||
-        student.programme === selectedProgramme;
+        level:
+          selectedLevel === "All Levels"
+            ? undefined
+            : selectedLevel,
 
-      const matchesLevel =
-        selectedLevel === "All Levels" ||
-        student.level === selectedLevel;
+        status:
+          selectedStatus === "All Statuses"
+            ? undefined
+            : statusToApiValue[selectedStatus],
+      });
 
-      const matchesStatus =
-        selectedStatus === "All Statuses" ||
-        student.status === selectedStatus;
+      if (response.success) {
+        setStudents(response.data.students);
+      }
+    } catch (error) {
+      console.error("FAILED TO FETCH FILTERED STUDENTS:", error);
+    }
+  };
 
-      return (
-        matchesSearch &&
-        matchesProgramme &&
-        matchesLevel &&
-        matchesStatus
-      );
-    });
-  }, [
-    students,
-    searchTerm,
-    selectedProgramme,
-    selectedLevel,
-    selectedStatus,
-  ]);
+  fetchFilteredStudents();
+}, [selectedProgramme, selectedLevel, selectedStatus]);
 
-  const activeCount = students.filter(
-    (student) => student.status === "Active"
-  ).length;
-
-  const graduatedCount = students.filter(
-    (student) => student.status === "Graduated"
-  ).length;
-
-  const deferredCount = students.filter(
-    (student) => student.status === "Deferred"
-  ).length;
+ const filteredStudents = useMemo(() => {
+  return students;
+}, [students]);
 
   const resetFilters = () => {
     setSearchTerm("");
@@ -209,7 +163,7 @@ export default function Students() {
             </div>
           </div>
           <h2 className="mt-3 text-3xl font-semibold text-[#14263F]">
-            {students.length}
+            {statistics.total_students}
           </h2>
           <p className="mt-2 text-xs text-slate-400">
             All departmental records
@@ -224,7 +178,7 @@ export default function Students() {
             </div>
           </div>
           <h2 className="mt-3 text-3xl font-semibold text-[#14263F]">
-            {activeCount}
+            {statistics.active_students}
           </h2>
           <p className="mt-2 text-xs text-slate-400">
             Currently active
@@ -239,7 +193,7 @@ export default function Students() {
             </div>
           </div>
           <h2 className="mt-3 text-3xl font-semibold text-[#14263F]">
-            {graduatedCount}
+            {statistics.graduated_students}
           </h2>
           <p className="mt-2 text-xs text-slate-400">
             Completed their programmes
@@ -254,7 +208,7 @@ export default function Students() {
             </div>
           </div>
           <h2 className="mt-3 text-3xl font-semibold text-[#14263F]">
-            {deferredCount}
+            {statistics.deferred_students}
           </h2>
           <p className="mt-2 text-xs text-slate-400">
             Currently deferred
@@ -306,10 +260,10 @@ export default function Students() {
                   }
                   className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-3 pr-9 text-sm text-slate-600 outline-none focus:border-[#14263F]"
                 >
-                  <option>All Programmes</option>
+                  <option value="All Programmes">All Programmes</option>
                   {programmes.map((programme) => (
-                    <option key={programme} value={programme}>
-                      {programme}
+                    <option key={programme.id} value={programme.id}>
+                      {programme.name}
                     </option>
                   ))}
                 </select>
@@ -327,9 +281,9 @@ export default function Students() {
                   }
                   className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-3 pr-9 text-sm text-slate-600 outline-none focus:border-[#14263F]"
                 >
-                  <option>All Levels</option>
+                  <option value="All Levels">All Levels</option>
                   {levels.map((level) => (
-                    <option key={level} value={level}>
+                    <option key={level} value={String(level)}>
                       {level} Level
                     </option>
                   ))}

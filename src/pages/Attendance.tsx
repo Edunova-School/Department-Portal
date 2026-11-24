@@ -1,4 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  getHodAttendanceFilterOptions,
+  getHodAttendanceOverview,
+  getHodCourseAttendance,
+  getHodCourseAttendanceDetails,
+} from "../lib/api";
 import {
   Search,
   CalendarCheck,
@@ -9,329 +15,228 @@ import {
   X,
   ChevronDown,
 } from "lucide-react";
-
-type AttendanceStatus = "Good" | "Warning" | "Critical";
-
-interface StudentAttendance {
-  matricNumber: string;
-  name: string;
-  classesHeld: number;
-  classesAttended: number;
-  percentage: number;
+interface AttendanceFilterOptions {
+  academic_sessions: {
+    id: string;
+    name: string;
+    is_current: boolean;
+  }[];
+  levels: number[];
+  programmes: {
+    id: string;
+    name: string;
+    code: string;
+  }[];
+  semesters: {
+    id: string;
+    name: string;
+  }[];
 }
-
-interface CourseAttendance {
-  id: number;
-  courseCode: string;
-  courseTitle: string;
-  lecturer: string;
-  programme: string;
-  level: string;
-  semester: string;
-  classesHeld: number;
-  totalStudents: number;
-  averageAttendance: number;
-  students: StudentAttendance[];
+interface AttendanceOverview {
+  academic_session: {
+    id: string;
+    name: string;
+  };
+  statistics: {
+    attendance_threshold: number;
+    average_attendance: number | null;
+    low_attendance_records: number;
+    total_class_sessions: number;
+    total_courses: number;
+    total_student_records: number;
+  };
 }
-
-const initialAttendance: CourseAttendance[] = [
-  {
-    id: 1,
-    courseCode: "SEN 101",
-    courseTitle: "Introduction to Software Engineering",
-    lecturer: "Dr. Samuel Adeyemi",
-    programme: "Software Engineering",
-    level: "100",
-    semester: "First Semester",
-    classesHeld: 12,
-    totalStudents: 4,
-    averageAttendance: 87.5,
-    students: [
-      {
-        matricNumber: "EDU/SE/2026/001",
-        name: "David Akinola",
-        classesHeld: 12,
-        classesAttended: 12,
-        percentage: 100,
-      },
-      {
-        matricNumber: "EDU/SE/2026/002",
-        name: "Esther Oladipo",
-        classesHeld: 12,
-        classesAttended: 10,
-        percentage: 83.3,
-      },
-      {
-        matricNumber: "EDU/SE/2026/003",
-        name: "Daniel Okafor",
-        classesHeld: 12,
-        classesAttended: 9,
-        percentage: 75,
-      },
-      {
-        matricNumber: "EDU/SE/2026/004",
-        name: "Mary Johnson",
-        classesHeld: 12,
-        classesAttended: 11,
-        percentage: 91.7,
-      },
-    ],
-  },
-  {
-    id: 2,
-    courseCode: "CSC 201",
-    courseTitle: "Data Structures and Algorithms",
-    lecturer: "Dr. Grace Oladipo",
-    programme: "Computer Science",
-    level: "200",
-    semester: "First Semester",
-    classesHeld: 10,
-    totalStudents: 4,
-    averageAttendance: 65,
-    students: [
-      {
-        matricNumber: "EDU/CS/2025/014",
-        name: "Michael Adewale",
-        classesHeld: 10,
-        classesAttended: 9,
-        percentage: 90,
-      },
-      {
-        matricNumber: "EDU/CS/2025/015",
-        name: "Samuel Ojo",
-        classesHeld: 10,
-        classesAttended: 7,
-        percentage: 70,
-      },
-      {
-        matricNumber: "EDU/CS/2025/016",
-        name: "Faith Adebayo",
-        classesHeld: 10,
-        classesAttended: 5,
-        percentage: 50,
-      },
-      {
-        matricNumber: "EDU/CS/2025/017",
-        name: "Peter James",
-        classesHeld: 10,
-        classesAttended: 5,
-        percentage: 50,
-      },
-    ],
-  },
-  {
-    id: 3,
-    courseCode: "IFT 301",
-    courseTitle: "Database Management Systems",
-    lecturer: "Mr. Michael Akinyemi",
-    programme: "Information Technology",
-    level: "300",
-    semester: "First Semester",
-    classesHeld: 14,
-    totalStudents: 4,
-    averageAttendance: 82.1,
-    students: [
-      {
-        matricNumber: "EDU/IT/2024/008",
-        name: "Grace Adebayo",
-        classesHeld: 14,
-        classesAttended: 13,
-        percentage: 92.9,
-      },
-      {
-        matricNumber: "EDU/IT/2024/009",
-        name: "Peter James",
-        classesHeld: 14,
-        classesAttended: 12,
-        percentage: 85.7,
-      },
-      {
-        matricNumber: "EDU/IT/2024/010",
-        name: "Esther Ojo",
-        classesHeld: 14,
-        classesAttended: 10,
-        percentage: 71.4,
-      },
-      {
-        matricNumber: "EDU/IT/2024/011",
-        name: "Daniel James",
-        classesHeld: 14,
-        classesAttended: 11,
-        percentage: 78.6,
-      },
-    ],
-  },
-  {
-    id: 4,
-    courseCode: "SEN 302",
-    courseTitle: "Software Requirements Engineering",
-    lecturer: "Mr. Joseph Ojo",
-    programme: "Software Engineering",
-    level: "300",
-    semester: "First Semester",
-    classesHeld: 11,
-    totalStudents: 4,
-    averageAttendance: 56.8,
-    students: [
-      {
-        matricNumber: "EDU/SE/2024/009",
-        name: "Joseph Ojo",
-        classesHeld: 11,
-        classesAttended: 10,
-        percentage: 90.9,
-      },
-      {
-        matricNumber: "EDU/SE/2024/010",
-        name: "Deborah James",
-        classesHeld: 11,
-        classesAttended: 5,
-        percentage: 45.5,
-      },
-      {
-        matricNumber: "EDU/SE/2024/011",
-        name: "Samuel Okafor",
-        classesHeld: 11,
-        classesAttended: 6,
-        percentage: 54.5,
-      },
-      {
-        matricNumber: "EDU/SE/2024/012",
-        name: "Grace Johnson",
-        classesHeld: 11,
-        classesAttended: 4,
-        percentage: 36.4,
-      },
-    ],
-  },
-  {
-    id: 5,
-    courseCode: "CSC 401",
-    courseTitle: "Artificial Intelligence",
-    lecturer: "Mr. Joseph Ojo",
-    programme: "Computer Science",
-    level: "400",
-    semester: "Second Semester",
-    classesHeld: 9,
-    totalStudents: 4,
-    averageAttendance: 88.9,
-    students: [
-      {
-        matricNumber: "EDU/CS/2023/011",
-        name: "Daniel Olawale",
-        classesHeld: 9,
-        classesAttended: 9,
-        percentage: 100,
-      },
-      {
-        matricNumber: "EDU/CS/2023/012",
-        name: "Deborah Johnson",
-        classesHeld: 9,
-        classesAttended: 8,
-        percentage: 88.9,
-      },
-      {
-        matricNumber: "EDU/CS/2023/013",
-        name: "Michael James",
-        classesHeld: 9,
-        classesAttended: 7,
-        percentage: 77.8,
-      },
-      {
-        matricNumber: "EDU/CS/2023/014",
-        name: "Esther Samuel",
-        classesHeld: 9,
-        classesAttended: 8,
-        percentage: 88.9,
-      },
-    ],
-  },
-];
-
-const getAttendanceStatus = (percentage: number): AttendanceStatus => {
-  if (percentage >= 75) return "Good";
-  if (percentage >= 60) return "Warning";
-  return "Critical";
-};
-
-const attendanceStyles: Record<AttendanceStatus, string> = {
-  Good: "bg-green-50 text-green-700",
-  Warning: "bg-amber-50 text-amber-700",
-  Critical: "bg-red-50 text-red-700",
-};
-
+interface AttendanceCourse {
+  course_id: string;
+  course_offering_id: string;
+  course_code: string;
+  course_title: string;
+  lecturer: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    full_name: string;
+  } | null;
+  level: number;
+  programme: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  semester: {
+    id: string;
+    name: string;
+  };
+  average_attendance: number | null;
+  low_attendance_count: number;
+  status: string;
+  total_sessions: number;
+  total_students: number;
+}
+interface AttendanceCourseDetails {
+  course: {
+    academic_session: string;
+    attendance_threshold: number;
+    average_attendance: number | null;
+    course_code: string;
+    course_offering_id: string;
+    course_title: string;
+    lecturer: string;
+    level: number;
+    low_attendance_count: number;
+    programme: string;
+    semester: string;
+    total_sessions: number;
+    total_students: number;
+  };
+  sessions: any[];
+  students: any[];
+}
 const Attendance = () => {
-  const [attendance] = useState<CourseAttendance[]>(initialAttendance);
+  const [filterOptions, setFilterOptions] =
+  useState<AttendanceFilterOptions | null>(null);
+  const [selectedSession, setSelectedSession] = useState("");
+  const [overview, setOverview] = useState<AttendanceOverview | null>(null);
+  const [courses, setCourses] = useState<AttendanceCourse[]>([]);
+
+    useEffect(() => {
+  const fetchFilterOptions = async () => {
+    try {
+      const response = await getHodAttendanceFilterOptions();
+      const options = response.data;
+      setFilterOptions(options);
+      const currentSession = options.academic_sessions.find(
+        (session: AttendanceFilterOptions["academic_sessions"][number]) =>
+          session.is_current
+      );
+
+      if (currentSession) {
+        setSelectedSession(currentSession.id);
+      }
+    } catch (error) {
+      console.error(
+        "FAILED TO FETCH ATTENDANCE FILTER OPTIONS:",
+        error
+      );
+    }
+  };
+
+  fetchFilterOptions();
+}, []);
+useEffect(() => {
+  if (!selectedSession) return;
+
+  const fetchAttendanceOverview = async () => {
+    try {
+      const response = await getHodAttendanceOverview({
+        academic_session_id: selectedSession,
+        threshold: 60,
+      });
+      setOverview(response.data);
+    } catch (error) {
+      console.error(
+        "FAILED TO FETCH ATTENDANCE OVERVIEW:",
+        error
+      );
+    }
+  };
+
+  fetchAttendanceOverview();
+}, [selectedSession]);
+useEffect(() => {
+  if (!selectedSession) return;
+
+  const fetchCourseAttendance = async () => {
+    try {
+      const response = await getHodCourseAttendance({
+        academic_session_id: selectedSession,
+        threshold: 60,
+      });
+      setCourses(response.data.courses);
+    } catch (error) {
+      console.error(
+        "FAILED TO FETCH COURSE ATTENDANCE:",
+        error
+      );
+    }
+  };
+
+  fetchCourseAttendance();
+}, [selectedSession]);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [programmeFilter, setProgrammeFilter] = useState("All Programmes");
   const [levelFilter, setLevelFilter] = useState("All Levels");
   const [semesterFilter, setSemesterFilter] = useState("All Semesters");
   const [selectedCourse, setSelectedCourse] =
-    useState<CourseAttendance | null>(null);
+  useState<AttendanceCourse | null>(null);
+  const [courseDetails, setCourseDetails] =
+  useState<AttendanceCourseDetails | null>(null);
+  const [loadingCourseDetails, setLoadingCourseDetails] =
+  useState(false);
   const [studentSearch, setStudentSearch] = useState("");
+  useEffect(() => {
+  if (!selectedCourse || !selectedSession) {
+    setCourseDetails(null);
+    return;
+  }
 
-  const allStudents = attendance.flatMap((course) => course.students);
+  const fetchCourseDetails = async () => {
+    try {
+      setLoadingCourseDetails(true);
+      setCourseDetails(null);
 
-  const totalClasses = attendance.reduce(
-    (total, course) => total + course.classesHeld,
-    0
+      const response = await getHodCourseAttendanceDetails(
+        selectedCourse.course_offering_id,
+        {
+          academic_session_id: selectedSession,
+          threshold: 60,
+        }
+      );
+      setCourseDetails(response.data);
+    } catch (error) {
+      console.error(
+        "FAILED TO FETCH INDIVIDUAL COURSE ATTENDANCE:",
+        error
+      );
+    } finally {
+      setLoadingCourseDetails(false);
+    }
+  };
+
+  fetchCourseDetails();
+}, [selectedCourse, selectedSession]);
+  const filteredAttendance = courses.filter((course) => {
+  const matchesSearch =
+    course.course_code
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase()) ||
+    course.course_title
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase()) ||
+    course.lecturer?.full_name
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+
+  const matchesProgramme =
+    programmeFilter === "All Programmes" ||
+    course.programme.id === programmeFilter;
+
+  const matchesLevel =
+    levelFilter === "All Levels" ||
+    String(course.level) === levelFilter;
+
+  const matchesSemester =
+    semesterFilter === "All Semesters" ||
+    course.semester.id === semesterFilter;
+
+  return (
+    matchesSearch &&
+    matchesProgramme &&
+    matchesLevel &&
+    matchesSemester
   );
-
-  const totalStudentRecords = allStudents.length;
-
-  const overallAttendance =
-    totalStudentRecords > 0
-      ? allStudents.reduce((total, student) => total + student.percentage, 0) /
-        totalStudentRecords
-      : 0;
-
-  const lowAttendanceCount = allStudents.filter(
-    (student) => student.percentage < 60
-  ).length;
-
-  const filteredAttendance = useMemo(() => {
-    return attendance.filter((course) => {
-      const search = searchTerm.toLowerCase();
-
-      const matchesSearch =
-        course.courseCode.toLowerCase().includes(search) ||
-        course.courseTitle.toLowerCase().includes(search) ||
-        course.lecturer.toLowerCase().includes(search);
-
-      const matchesProgramme =
-        programmeFilter === "All Programmes" ||
-        course.programme === programmeFilter;
-
-      const matchesLevel =
-        levelFilter === "All Levels" || course.level === levelFilter;
-
-      const matchesSemester =
-        semesterFilter === "All Semesters" ||
-        course.semester === semesterFilter;
-
-      return (
-        matchesSearch &&
-        matchesProgramme &&
-        matchesLevel &&
-        matchesSemester
-      );
-    });
-  }, [
-    attendance,
-    searchTerm,
-    programmeFilter,
-    levelFilter,
-    semesterFilter,
-  ]);
-
-  const filteredStudents =
-    selectedCourse?.students.filter((student) => {
-      const search = studentSearch.toLowerCase();
-
-      return (
-        student.name.toLowerCase().includes(search) ||
-        student.matricNumber.toLowerCase().includes(search)
-      );
-    }) ?? [];
+});
 
   const clearFilters = () => {
     setSearchTerm("");
@@ -361,8 +266,19 @@ const Attendance = () => {
         </div>
 
         <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-600">
-          <CalendarCheck size={17} className="text-[#B8901F]" />
-          2026/2027 Academic Session
+          <CalendarCheck size={17} className="shrink-0 text-[#B8901F]" />
+
+          <select
+            value={selectedSession}
+            onChange={(e) => setSelectedSession(e.target.value)}
+            className="bg-transparent text-sm outline-none"
+          >
+            {filterOptions?.academic_sessions.map((session) => (
+              <option key={session.id} value={session.id}>
+                {session.name} Academic Session
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -376,7 +292,7 @@ const Attendance = () => {
             <span className="text-xs text-gray-400">Across sample records</span>
           </div>
           <p className="mt-4 text-2xl font-bold text-[#0B1524]">
-            {totalStudentRecords}
+            {overview?.statistics.total_student_records ?? 0}
           </p>
           <p className="mt-1 text-sm text-gray-500">Student Records</p>
         </div>
@@ -389,7 +305,9 @@ const Attendance = () => {
             <span className="text-xs text-gray-400">Average across records</span>
           </div>
           <p className="mt-4 text-2xl font-bold text-[#0B1524]">
-            {overallAttendance.toFixed(1)}%
+            {overview?.statistics.average_attendance != null
+  ? `${overview.statistics.average_attendance.toFixed(1)}%`
+  : "—"}
           </p>
           <p className="mt-1 text-sm text-gray-500">Average Attendance</p>
         </div>
@@ -402,7 +320,7 @@ const Attendance = () => {
             <span className="text-xs text-gray-400">Across listed courses</span>
           </div>
           <p className="mt-4 text-2xl font-bold text-[#0B1524]">
-            {totalClasses}
+            {overview?.statistics.total_class_sessions ?? 0}
           </p>
           <p className="mt-1 text-sm text-gray-500">Class Sessions Recorded</p>
         </div>
@@ -412,10 +330,10 @@ const Attendance = () => {
             <div className="rounded-lg bg-red-50 p-2.5 text-red-700">
               <AlertTriangle size={21} />
             </div>
-            <span className="text-xs text-gray-400">Below 60%</span>
+            <span className="text-xs text-gray-400">Below {overview?.statistics.attendance_threshold ?? 60}%</span>
           </div>
           <p className="mt-4 text-2xl font-bold text-[#0B1524]">
-            {lowAttendanceCount}
+            {overview?.statistics.low_attendance_records ?? 0}
           </p>
           <p className="mt-1 text-sm text-gray-500">Low Attendance Records</p>
         </div>
@@ -466,31 +384,40 @@ const Attendance = () => {
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
             {[
-              {
-                value: programmeFilter,
-                setValue: setProgrammeFilter,
-                options: [
-                  "All Programmes",
-                  "Software Engineering",
-                  "Computer Science",
-                  "Information Technology",
-                ],
-              },
-              {
-                value: levelFilter,
-                setValue: setLevelFilter,
-                options: ["All Levels", "100", "200", "300", "400", "500"],
-              },
-              {
-                value: semesterFilter,
-                setValue: setSemesterFilter,
-                options: [
-                  "All Semesters",
-                  "First Semester",
-                  "Second Semester",
-                ],
-              },
-            ].map((filter, index) => (
+  {
+    value: programmeFilter,
+    setValue: setProgrammeFilter,
+    options: [
+      { value: "All Programmes", label: "All Programmes" },
+      ...(filterOptions?.programmes.map((programme) => ({
+        value: programme.id,
+        label: programme.name,
+      })) ?? []),
+    ],
+  },
+  {
+    value: levelFilter,
+    setValue: setLevelFilter,
+    options: [
+      { value: "All Levels", label: "All Levels" },
+      ...(filterOptions?.levels.map((level) => ({
+        value: String(level),
+        label: `${level} Level`,
+      })) ?? []),
+    ],
+  },
+  {
+    value: semesterFilter,
+    setValue: setSemesterFilter,
+    options: [
+      { value: "All Semesters", label: "All Semesters" },
+      ...(filterOptions?.semesters.map((semester) => ({
+        value: semester.id,
+        label: semester.name,
+      })) ?? []),
+    ],
+  },
+].map((filter, index) => (
               <div key={index} className="relative">
                 <select
                   value={filter.value}
@@ -498,8 +425,8 @@ const Attendance = () => {
                   className="appearance-none rounded-lg border border-gray-200 bg-white py-2 pl-3 pr-9 text-sm text-gray-600 outline-none focus:border-[#1E3A8A]"
                 >
                   {filter.options.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
+                    <option key={option.value} value={option.value}>
+                      {option.label}
                     </option>
                   ))}
                 </select>
@@ -539,19 +466,19 @@ const Attendance = () => {
             <tbody className="divide-y divide-gray-100">
               {filteredAttendance.length > 0 ? (
                 filteredAttendance.map((course) => (
-                  <tr key={course.id} className="transition hover:bg-gray-50/70">
+                  <tr key={course.course_offering_id} className="transition hover:bg-gray-50/70">
                     <td className="px-5 py-4">
                       <p className="font-semibold text-[#0B1524]">
-                        {course.courseCode}
+                        {course.course_code}
                       </p>
                       <p className="mt-1 text-sm text-gray-500">
-                        {course.courseTitle}
+                        {course.course_title}
                       </p>
                     </td>
 
                     <td className="px-5 py-4">
                       <p className="text-sm font-medium text-gray-700">
-                        {course.programme}
+                        {course.programme.name}
                       </p>
                       <p className="mt-1 text-xs text-gray-500">
                         {course.level} Level
@@ -559,35 +486,36 @@ const Attendance = () => {
                     </td>
 
                     <td className="px-5 py-4 text-sm text-gray-600">
-                      {course.lecturer}
+                      {course.lecturer?.full_name ?? "Not assigned"}
                     </td>
 
                     <td className="px-5 py-4 text-sm text-gray-600">
-                      {course.classesHeld}
+                      {course.total_sessions}
                     </td>
 
                     <td className="px-5 py-4 text-sm text-gray-600">
-                      {course.totalStudents}
+                      {course.total_students}
                     </td>
 
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         <div className="h-2 w-20 overflow-hidden rounded-full bg-gray-100">
                           <div
-                            className={`h-full rounded-full ${
-                              course.averageAttendance >= 75
-                                ? "bg-green-500"
-                                : course.averageAttendance >= 60
-                                  ? "bg-amber-500"
-                                  : "bg-red-500"
-                            }`}
+                            className="h-full rounded-full bg-[#B8901F]"
                             style={{
-                              width: `${course.averageAttendance}%`,
+                              width: `${
+                                course.average_attendance !== null
+                                  ? Math.min(course.average_attendance, 100)
+                                  : 0
+                              }%`,
                             }}
                           />
                         </div>
+
                         <span className="text-sm font-medium text-gray-700">
-                          {course.averageAttendance}%
+                          {course.average_attendance !== null
+                            ? `${course.average_attendance.toFixed(1)}%`
+                            : "—"}
                         </span>
                       </div>
                     </td>
@@ -596,9 +524,9 @@ const Attendance = () => {
                       <button
                         type="button"
                         onClick={() => {
-                          setSelectedCourse(course);
-                          setStudentSearch("");
-                        }}
+  setSelectedCourse(course);
+  setStudentSearch("");
+}}
                         className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-[#1E3A8A] transition hover:border-[#1E3A8A] hover:bg-blue-50"
                       >
                         <Eye size={15} />
@@ -623,9 +551,9 @@ const Attendance = () => {
 
         <div className="flex flex-col gap-2 border-t border-gray-100 px-5 py-4 text-sm text-gray-500 sm:flex-row sm:items-center sm:justify-between">
           <p>
-            Showing {filteredAttendance.length} of {attendance.length} courses
-          </p>
-          <p>Sample attendance records</p>
+          Showing {filteredAttendance.length} of {courses.length} courses
+        </p>
+        <p>Attendance records for the selected academic session</p>
         </div>
       </div>
 
@@ -639,7 +567,7 @@ const Attendance = () => {
                   Attendance Details
                 </h2>
                 <p className="mt-1 text-sm text-gray-500">
-                  {selectedCourse.courseCode} — {selectedCourse.courseTitle}
+                  {courseDetails?.course.course_code ?? selectedCourse.course_code} — {courseDetails?.course.course_title ?? selectedCourse.course_title}
                 </p>
               </div>
 
@@ -658,28 +586,28 @@ const Attendance = () => {
                 <div>
                   <p className="text-xs text-gray-500">Programme</p>
                   <p className="mt-1 text-sm font-medium text-[#0B1524]">
-                    {selectedCourse.programme}
+                    {courseDetails?.course.programme ?? selectedCourse.programme.name}
                   </p>
                 </div>
 
                 <div>
                   <p className="text-xs text-gray-500">Level</p>
                   <p className="mt-1 text-sm font-medium text-[#0B1524]">
-                    {selectedCourse.level} Level
+                    {courseDetails?.course.level ?? selectedCourse.level} Level
                   </p>
                 </div>
 
                 <div>
                   <p className="text-xs text-gray-500">Lecturer</p>
                   <p className="mt-1 text-sm font-medium text-[#0B1524]">
-                    {selectedCourse.lecturer}
+                    {courseDetails?.course.lecturer ?? selectedCourse.lecturer?.full_name ?? "Not assigned"}
                   </p>
                 </div>
 
                 <div>
                   <p className="text-xs text-gray-500">Classes Held</p>
                   <p className="mt-1 text-sm font-medium text-[#0B1524]">
-                    {selectedCourse.classesHeld}
+                    {courseDetails?.course.total_sessions ?? selectedCourse.total_sessions}
                   </p>
                 </div>
               </div>
@@ -704,71 +632,28 @@ const Attendance = () => {
                 </div>
               </div>
 
-              <div className="overflow-x-auto rounded-lg border border-gray-200">
-                <table className="w-full min-w-[650px] text-left">
-                  <thead className="bg-gray-50">
-                    <tr className="text-xs font-semibold uppercase text-gray-500">
-                      <th className="px-4 py-3">Student</th>
-                      <th className="px-4 py-3">Classes Held</th>
-                      <th className="px-4 py-3">Attended</th>
-                      <th className="px-4 py-3">Attendance</th>
-                      <th className="px-4 py-3">Status</th>
-                    </tr>
-                  </thead>
+              {loadingCourseDetails ? (
+                  <div className="py-10 text-center text-sm text-gray-500">
+                    Loading student attendance records...
+                  </div>
+                ) : courseDetails?.students.length ? (
+                  <div className="py-10 text-center text-sm text-gray-500">
+                    Student records are available.
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-gray-200 px-4 py-10 text-center">
+                    <Users size={28} className="mx-auto text-gray-300" />
 
-                  <tbody className="divide-y divide-gray-100">
-                    {filteredStudents.length > 0 ? (
-                      filteredStudents.map((student) => {
-                        const status = getAttendanceStatus(
-                          student.percentage
-                        );
+                    <p className="mt-3 text-sm font-medium text-gray-700">
+                      No student attendance records
+                    </p>
 
-                        return (
-                          <tr key={student.matricNumber}>
-                            <td className="px-4 py-3">
-                              <p className="text-sm font-medium text-[#0B1524]">
-                                {student.name}
-                              </p>
-                              <p className="mt-1 text-xs text-gray-500">
-                                {student.matricNumber}
-                              </p>
-                            </td>
-
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {student.classesHeld}
-                            </td>
-
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {student.classesAttended}
-                            </td>
-
-                            <td className="px-4 py-3 text-sm font-medium text-gray-700">
-                              {student.percentage}%
-                            </td>
-
-                            <td className="px-4 py-3">
-                              <span
-                                className={`rounded-full px-2.5 py-1 text-xs font-medium ${attendanceStyles[status]}`}
-                              >
-                                {status}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr>
-                        <td
-                          colSpan={5}
-                          className="px-4 py-8 text-center text-sm text-gray-500"
-                        >
-                          No student records found.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Attendance records will appear here once lecturers begin recording
+                      attendance for this course.
+                    </p>
+                  </div>
+                )}
 
               <div className="flex justify-end border-t border-gray-100 pt-4">
                 <button

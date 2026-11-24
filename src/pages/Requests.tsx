@@ -1,5 +1,4 @@
-
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Search,
   Eye,
@@ -13,7 +12,7 @@ import {
   MessageSquare,
   AlertCircle,
 } from "lucide-react";
-
+import { getHodAttendanceFilterOptions, getHodRequestsOverview, getHodRequests  } from "../lib/api";
 type RequesterType = "Student" | "Staff";
 type RequestStatus =
   | "Pending"
@@ -164,6 +163,32 @@ const priorityStyles: Record<RequestPriority, string> = {
 };
 
 const Requests = () => {
+  useEffect(() => {
+  const fetchRequestsOverview = async () => {
+    try {
+      const optionsResponse = await getHodAttendanceFilterOptions();
+
+      const currentSession =
+        optionsResponse.data.academic_sessions.find(
+          (session: { is_current: boolean; id: string }) =>
+            session.is_current
+        );
+
+      if (!currentSession) {
+        console.error("No current academic session found.");
+        return;
+      }
+
+      const response = await getHodRequests(currentSession.id);
+
+console.log("HOD REQUESTS LIST:", response);
+    } catch (error) {
+      console.error("FAILED TO FETCH HOD REQUESTS OVERVIEW:", error);
+    }
+  };
+
+  fetchRequestsOverview();
+}, []);
   const [requests, setRequests] =
     useState<DepartmentRequest[]>(initialRequests);
 

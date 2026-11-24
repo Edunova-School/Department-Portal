@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { clearSession } from "../lib/api";
 
 const barLists = [
   {
@@ -70,21 +71,22 @@ export default function Sidebar({
   const [confirmingLogout, setConfirmingLogout] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  const handleLogout = async () => {
-    if (loggingOut) return;
+const handleLogout = () => {
+  if (loggingOut) return;
 
-    setLoggingOut(true);
+  setLoggingOut(true);
 
-    try {
-      // Connect department logout API here later.
-    } catch (error) {
-      console.error("Logout request failed:", error);
-    } finally {
-      setConfirmingLogout(false);
-      navigate("/", { replace: true });
-    }
-  };
+  try {
+    clearSession();
+    setConfirmingLogout(false);
 
+    navigate("/", { replace: true });
+  } catch (error) {
+    console.error("Logout failed:", error);
+  } finally {
+    setLoggingOut(false);
+  }
+};  
   return (
     <div className="bg-white h-screen w-72 flex flex-col shadow-2xl">
       {/* Logo */}

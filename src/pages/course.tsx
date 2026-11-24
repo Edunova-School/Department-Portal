@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BookOpen,
   Search,
@@ -9,11 +9,20 @@ import {
   ChevronDown,
   Pencil,
 } from "lucide-react";
-
+import {
+  getHodCoursesOverview,
+  getHodCourses,
+  getHodCourseDetails,
+  getHodLecturers,
+  assignHodCourseLecturer,
+  removeHodCourseLecturer,
+  getHodAttendanceFilterOptions,
+} from "../lib/api";
 type CourseStatus = "Active" | "Inactive";
 
 interface Course {
-  id: number;
+  id: string;
+  offeringId: string | null;
   code: string;
   title: string;
   programme: string;
@@ -21,161 +30,154 @@ interface Course {
   semester: string;
   creditUnits: number;
   lecturer: string | null;
+  lecturerUserId: string | null;
   status: CourseStatus;
 }
-
-const initialCourses: Course[] = [
-  {
-    id: 1,
-    code: "SEN 101",
-    title: "Introduction to Software Engineering",
-    programme: "Software Engineering",
-    level: "100",
-    semester: "First Semester",
-    creditUnits: 3,
-    lecturer: "Dr. Samuel Adeyemi",
-    status: "Active",
-  },
-  {
-    id: 2,
-    code: "SEN 102",
-    title: "Introduction to Programming",
-    programme: "Software Engineering",
-    level: "100",
-    semester: "First Semester",
-    creditUnits: 3,
-    lecturer: "Mr. Michael Akinyemi",
-    status: "Active",
-  },
-  {
-    id: 3,
-    code: "CSC 201",
-    title: "Data Structures and Algorithms",
-    programme: "Computer Science",
-    level: "200",
-    semester: "First Semester",
-    creditUnits: 3,
-    lecturer: "Dr. Grace Oladipo",
-    status: "Active",
-  },
-  {
-    id: 4,
-    code: "SEN 202",
-    title: "Object-Oriented Programming",
-    programme: "Software Engineering",
-    level: "200",
-    semester: "Second Semester",
-    creditUnits: 3,
-    lecturer: "Mr. Joseph Ojo",
-    status: "Active",
-  },
-  {
-    id: 5,
-    code: "IFT 301",
-    title: "Database Management Systems",
-    programme: "Information Technology",
-    level: "300",
-    semester: "First Semester",
-    creditUnits: 3,
-    lecturer: "Mr. Michael Akinyemi",
-    status: "Active",
-  },
-  {
-    id: 6,
-    code: "SEN 302",
-    title: "Software Requirements Engineering",
-    programme: "Software Engineering",
-    level: "300",
-    semester: "First Semester",
-    creditUnits: 2,
-    lecturer: null,
-    status: "Active",
-  },
-  {
-    id: 7,
-    code: "CSC 401",
-    title: "Artificial Intelligence",
-    programme: "Computer Science",
-    level: "400",
-    semester: "Second Semester",
-    creditUnits: 3,
-    lecturer: "Mr. Joseph Ojo",
-    status: "Active",
-  },
-  {
-    id: 8,
-    code: "SEN 402",
-    title: "Software Project Management",
-    programme: "Software Engineering",
-    level: "400",
-    semester: "Second Semester",
-    creditUnits: 2,
-    lecturer: null,
-    status: "Active",
-  },
-  {
-    id: 9,
-    code: "IFT 202",
-    title: "Computer Networks",
-    programme: "Information Technology",
-    level: "200",
-    semester: "Second Semester",
-    creditUnits: 3,
-    lecturer: "Dr. Esther Adebayo",
-    status: "Active",
-  },
-  {
-    id: 10,
-    code: "CSC 302",
-    title: "Operating Systems",
-    programme: "Computer Science",
-    level: "300",
-    semester: "Second Semester",
-    creditUnits: 3,
-    lecturer: null,
-    status: "Inactive",
-  },
-];
-
-const lecturers = [
-  "Dr. Samuel Adeyemi",
-  "Dr. Grace Oladipo",
-  "Mr. Michael Akinyemi",
-  "Mrs. Deborah Johnson",
-  "Mr. Joseph Ojo",
-  "Dr. Esther Adebayo",
-  "Mr. Daniel Olawale",
-];
-
-const programmeOptions = [
-  "Software Engineering",
-  "Computer Science",
-  "Information Technology",
-];
+interface Lecturer {
+  user_id: string;
+  staff_id: string;
+  staff_number: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  email: string;
+  job_title: string;
+  specialization: string;
+}
 
 const Courses = () => {
-  const [courses, setCourses] = useState<Course[]>(initialCourses);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [programmeFilter, setProgrammeFilter] = useState("All Programmes");
   const [levelFilter, setLevelFilter] = useState("All Levels");
   const [semesterFilter, setSemesterFilter] = useState("All Semesters");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
 
+  const [selectedSession, setSelectedSession] = useState("");
+const [sessionName, setSessionName] = useState("");
+const [overview, setOverview] = useState<any>(null);
+const [lecturers, setLecturers] = useState<Lecturer[]>([]);
+const [loading, setLoading] = useState(false);
+const [fetchError, setFetchError] = useState("");
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [selectedLecturer, setSelectedLecturer] = useState("");
+  const [savingAssignment, setSavingAssignment] = useState(false);
+const [assignmentError, setAssignmentError] = useState("");
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+const [courseDetails, setCourseDetails] = useState<any>(null);
+const [detailsLoading, setDetailsLoading] = useState(false);
+const [detailsError, setDetailsError] = useState("");
 
-  const totalCourses = courses.length;
-  const activeCourses = courses.filter(
-    (course) => course.status === "Active"
-  ).length;
-  const assignedCourses = courses.filter(
-    (course) => course.lecturer !== null
-  ).length;
-  const unassignedCourses = courses.filter(
-    (course) => course.status === "Active" && course.lecturer === null
-  ).length;
+  const programmeOptions = Array.from(
+  new Set(courses.map((course) => course.programme).filter(Boolean))
+);
+  useEffect(() => {
+  const fetchAcademicSession = async () => {
+    try {
+      const response = await getHodAttendanceFilterOptions();
+      const options = response.data;
 
+      const currentSession = options.academic_sessions.find(
+        (session: { id: string; name: string; is_current: boolean }) =>
+          session.is_current
+      );
+
+      if (currentSession) {
+        setSelectedSession(currentSession.id);
+        setSessionName(currentSession.name);
+      }
+    } catch (error) {
+      console.error("FAILED TO FETCH ACADEMIC SESSION:", error);
+    }
+  };
+
+  fetchAcademicSession();
+}, []);
+useEffect(() => {
+  if (!selectedSession) return;
+
+  const fetchCourseManagementData = async () => {
+    try {
+      setLoading(true);
+      setFetchError("");
+
+      const [overviewResponse, coursesResponse, lecturersResponse] =
+        await Promise.all([
+          getHodCoursesOverview(selectedSession),
+          getHodCourses({
+            academic_session_id: selectedSession,
+          }),
+          getHodLecturers(),
+        ]); 
+
+      // console.log("COURSES OVERVIEW RESPONSE:", overviewResponse);
+      // console.log("COURSES LIST RESPONSE:", coursesResponse);
+      // console.log("LECTURERS RESPONSE:", lecturersResponse);
+
+        console.table(
+          coursesResponse.data.courses.map((course: any) => ({
+            code: course.code,
+            courseId: course.id,
+            offeringId: course.course_offering_id,
+            lecturer: course.lecturer?.full_name ?? "Not assigned",
+          }))
+        );
+        console.log(
+  "CSC120 FULL COURSE DATA:",
+  coursesResponse.data.courses.find(
+    (course: any) => course.code === "CSC120"
+  )
+);
+
+      setOverview(overviewResponse.data);
+      setCourses(
+        (coursesResponse.data.courses ?? []).map((course: any) => ({
+          id: course.id,
+          offeringId: course.course_offering_id,
+          code: course.code,
+          title: course.title,
+          programme: course.programme?.name ?? "—",
+          level: String(course.level),
+          semester:
+            course.semester?.name ??
+            (course.course_semester === 1
+              ? "First Semester"
+              : course.course_semester === 2
+                ? "Second Semester"
+                : "—"),
+          creditUnits: course.credit_units,
+          lecturer: course.lecturer?.full_name ?? null,
+          lecturerUserId:
+            lecturersResponse.data.lecturers?.find(
+              (lecturer: Lecturer) =>
+                lecturer.email === course.lecturer?.email
+            )?.user_id ?? null,
+          status: course.is_active ? "Active" : "Inactive",
+        }))
+      );
+      setLecturers(lecturersResponse.data.lecturers ?? []);
+    } catch (error) {
+      console.error("FAILED TO FETCH COURSE MANAGEMENT DATA:", error);
+      setFetchError(
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch course management data."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchCourseManagementData();
+}, [selectedSession]);
+
+  const statistics = overview?.statistics;
+
+  const totalCourses = statistics?.total_courses ?? 0;
+  const activeCourses = statistics?.active_courses ?? 0;
+  const assignedCourses = statistics?.assigned_courses ?? 0;
+  const unassignedCourses = statistics?.unassigned_courses ?? 0;
   const filteredCourses = useMemo(() => {
     return courses.filter((course) => {
       const matchesSearch =
@@ -217,29 +219,118 @@ const Courses = () => {
 
   const openAssignmentModal = (course: Course) => {
     setSelectedCourse(course);
-    setSelectedLecturer(course.lecturer ?? "");
+    setSelectedLecturer(course.lecturerUserId ?? "");
     setShowAssignmentModal(true);
   };
+const openCourseDetails = async (course: Course) => {
+  setShowDetailsModal(true);
+  setCourseDetails(null);
+  setDetailsError("");
 
+  if (!course.offeringId) {
+    setCourseDetails(course);
+    setDetailsError(
+      "Detailed offering information is unavailable because this course has no offering ID yet."
+    );
+    return;
+  }
+
+  try {
+    setDetailsLoading(true);
+
+    const response = await getHodCourseDetails(
+      course.offeringId,
+      selectedSession
+    );
+
+    console.log("COURSE DETAILS RESPONSE:", response);
+
+    setCourseDetails(response.data);
+  } catch (error) {
+    console.error("FAILED TO FETCH COURSE DETAILS:", error);
+
+    setDetailsError(
+      error instanceof Error
+        ? error.message
+        : "Unable to retrieve course details."
+    );
+  } finally {
+    setDetailsLoading(false);
+  }
+};
   const closeAssignmentModal = () => {
     setShowAssignmentModal(false);
     setSelectedCourse(null);
     setSelectedLecturer("");
   };
 
-  const saveAssignment = () => {
-    if (!selectedCourse) return;
+const saveAssignment = async () => {
+  if (!selectedCourse) return;
 
-    setCourses((currentCourses) =>
-      currentCourses.map((course) =>
-        course.id === selectedCourse.id
-          ? { ...course, lecturer: selectedLecturer || null }
-          : course
-      )
+  if (!selectedCourse.offeringId) {
+    setAssignmentError(
+      "This course has no course offering ID yet. Please contact the backend developer before assigning a lecturer."
     );
+    return;
+  }
+
+  setSavingAssignment(true);
+  setAssignmentError("");
+
+  try {
+    if (selectedLecturer) {
+      await assignHodCourseLecturer(selectedCourse.offeringId, {
+        academic_session_id: selectedSession,
+        lecturer_user_id: selectedLecturer,
+      });
+
+      const assignedLecturer = lecturers.find(
+        (lecturer) => lecturer.user_id === selectedLecturer
+      );
+
+      setCourses((currentCourses) =>
+        currentCourses.map((course) =>
+          course.id === selectedCourse.id
+            ? {
+                ...course,
+                lecturer: assignedLecturer?.full_name ?? null,
+                lecturerUserId: selectedLecturer,
+              }
+            : course
+        )
+      );
+    } else if (selectedCourse.lecturerUserId) {
+      await removeHodCourseLecturer(
+        selectedCourse.offeringId,
+        selectedSession
+      );
+
+      setCourses((currentCourses) =>
+        currentCourses.map((course) =>
+          course.id === selectedCourse.id
+            ? {
+                ...course,
+                lecturer: null,
+                lecturerUserId: null,
+              }
+            : course
+        )
+      );
+    }
 
     closeAssignmentModal();
-  };
+  } catch (error) {
+    console.error("FAILED TO SAVE LECTURER ASSIGNMENT:", error);
+
+    setAssignmentError(
+      error instanceof Error
+        ? error.message
+        : "Unable to save lecturer assignment."
+    );
+  } finally {
+    setSavingAssignment(false);
+  }
+};
 
   const clearFilters = () => {
     setSearchTerm("");
@@ -271,7 +362,9 @@ const Courses = () => {
 
         <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-600">
           <BookOpen size={17} className="text-[#B8901F]" />
-          <span>2026/2027 Academic Session</span>
+          <span>
+            {sessionName || "Loading academic session..."} Academic Session
+          </span>
         </div>
       </div>
 
@@ -464,7 +557,19 @@ const Courses = () => {
             </thead>
 
             <tbody className="divide-y divide-gray-100">
-              {filteredCourses.length > 0 ? (
+              {loading ? (
+                  <tr>
+                    <td colSpan={7} className="px-5 py-12 text-center text-sm text-gray-500">
+                      Loading courses...
+                    </td>
+                  </tr>
+                ) : fetchError ? (
+                  <tr>
+                    <td colSpan={7} className="px-5 py-12 text-center text-sm text-red-600">
+                      {fetchError}
+                    </td>
+                  </tr>
+                ) : filteredCourses.length > 0 ? (
                 filteredCourses.map((course) => (
                   <tr key={course.id} className="transition hover:bg-gray-50/70">
                     <td className="px-5 py-4">
@@ -526,16 +631,26 @@ const Courses = () => {
                       </span>
                     </td>
 
-                    <td className="px-5 py-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => openAssignmentModal(course)}
-                        disabled={course.status !== "Active"}
-                        className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-[#1E3A8A] transition hover:border-[#1E3A8A] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        <Pencil size={14} />
-                        {course.lecturer ? "Manage" : "Assign"}
-                      </button>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openCourseDetails(course)}
+                          className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 transition hover:border-gray-400 hover:bg-gray-50"
+                        >
+                          View
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => openAssignmentModal(course)}
+                          disabled={course.status !== "Active"}
+                          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-[#1E3A8A] transition hover:border-[#1E3A8A] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <Pencil size={14} />
+                          {course.lecturer ? "Manage" : "Assign"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -557,7 +672,9 @@ const Courses = () => {
           <p>
             Showing {filteredCourses.length} of {totalCourses} courses
           </p>
-          <p>Course information is currently sample data.</p>
+          <p>
+            {loading ? "Loading courses..." : fetchError || "Course information retrieved from the academic session."}
+          </p>
         </div>
       </div>
 
@@ -602,17 +719,24 @@ const Courses = () => {
                 >
                   <option value="">No lecturer assigned</option>
                   {lecturers.map((lecturer) => (
-                    <option key={lecturer} value={lecturer}>
-                      {lecturer}
+                    <option key={lecturer.user_id} value={lecturer.user_id}>
+                      {lecturer.full_name}
+                      {lecturer.job_title ? ` — ${lecturer.job_title}` : ""}
                     </option>
                   ))}
                 </select>
               </div>
 
-              <p className="text-xs leading-5 text-gray-500">
-                This is a sample assignment workflow. Changes are only saved
-                locally in this demonstration and are not sent to the backend.
-              </p>
+              {assignmentError ? (
+                <p className="text-xs leading-5 text-red-600">
+                  {assignmentError}
+                </p>
+              ) : (
+                <p className="text-xs leading-5 text-gray-500">
+                  Select a lecturer to assign or change the lecturer for this course.
+                  Select "No lecturer assigned" to remove an existing assignment.
+                </p>
+              )}
             </div>
 
             <div className="flex justify-end gap-3 border-t border-gray-100 p-5">
@@ -627,14 +751,119 @@ const Courses = () => {
               <button
                 type="button"
                 onClick={saveAssignment}
-                className="rounded-lg bg-[#1E3A8A] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#14263F]"
+                disabled={savingAssignment}
+                className="rounded-lg bg-[#1E3A8A] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#14263F] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Save Assignment
+                {savingAssignment ? "Saving..." : "Save Assignment"}
               </button>
             </div>
           </div>
         </div>
       )}
+      {/* Course Details Modal */}
+{showDetailsModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
+      <div className="flex items-start justify-between border-b border-gray-100 p-5">
+        <div>
+          <h2 className="text-lg font-semibold text-[#0B1524]">
+            Course Details
+          </h2>
+          <p className="mt-1 text-sm text-gray-500">
+            {courseDetails?.code} — {courseDetails?.title}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            setShowDetailsModal(false);
+            setCourseDetails(null);
+            setDetailsError("");
+          }}
+          className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+          aria-label="Close details"
+        >
+          <X size={20} />
+        </button>
+      </div>
+
+      <div className="space-y-4 p-5">
+        {detailsLoading ? (
+          <p className="text-sm text-gray-500">Loading course details...</p>
+        ) : (
+          <>
+            {detailsError && (
+              <p className="text-sm text-amber-700">{detailsError}</p>
+            )}
+
+            {courseDetails && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs text-gray-400">Course Code</p>
+                  <p className="mt-1 text-sm font-medium text-gray-800">
+                    {courseDetails.code}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-400">Course Title</p>
+                  <p className="mt-1 text-sm font-medium text-gray-800">
+                    {courseDetails.title}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-400">Programme</p>
+                  <p className="mt-1 text-sm font-medium text-gray-800">
+                    {courseDetails.programme?.name ?? courseDetails.programme ?? "—"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-400">Level</p>
+                  <p className="mt-1 text-sm font-medium text-gray-800">
+                    {courseDetails.level ?? "—"} Level
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-400">Semester</p>
+                  <p className="mt-1 text-sm font-medium text-gray-800">
+                    {courseDetails.semester?.name ?? courseDetails.semester ?? "—"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-400">Credit Units</p>
+                  <p className="mt-1 text-sm font-medium text-gray-800">
+                    {courseDetails.credit_units ?? courseDetails.creditUnits ?? "—"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-400">Assigned Lecturer</p>
+                  <p className="mt-1 text-sm font-medium text-gray-800">
+                    {courseDetails.lecturer?.full_name ??
+                      courseDetails.lecturer ??
+                      "Not assigned"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-400">Offering Status</p>
+                  <p className="mt-1 text-sm font-medium text-gray-800">
+                    {courseDetails.offering_status ?? "—"}
+                  </p>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 };

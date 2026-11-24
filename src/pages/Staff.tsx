@@ -1,5 +1,5 @@
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Users,
   UserCheck,
@@ -11,6 +11,10 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import {
+  getHodStaffOverview,
+  getHodStaff,
+} from "../lib/api";
 
 type StaffStatus = "Active" | "On Leave" | "Inactive";
 
@@ -20,83 +24,21 @@ interface StaffMember {
   staffId: string;
   email: string;
   designation: string;
-  specialization: string;
+  specialization: string | null;
   assignedCourses: number;
   status: StaffStatus;
 }
 
-const mockStaff: StaffMember[] = [
-  {
-    id: "1",
-    name: "Dr. Samuel Adeyemi",
-    staffId: "EDU/STAFF/001",
-    email: "samuel.adeyemi@example.com",
-    designation: "Senior Lecturer",
-    specialization: "Software Engineering",
-    assignedCourses: 4,
-    status: "Active",
-  },
-  {
-    id: "2",
-    name: "Dr. Grace Oladipo",
-    staffId: "EDU/STAFF/002",
-    email: "grace.oladipo@example.com",
-    designation: "Associate Professor",
-    specialization: "Computer Networks",
-    assignedCourses: 3,
-    status: "Active",
-  },
-  {
-    id: "3",
-    name: "Mr. Michael Akinyemi",
-    staffId: "EDU/STAFF/003",
-    email: "michael.akinyemi@example.com",
-    designation: "Lecturer I",
-    specialization: "Database Systems",
-    assignedCourses: 3,
-    status: "Active",
-  },
-  {
-    id: "4",
-    name: "Mrs. Deborah Johnson",
-    staffId: "EDU/STAFF/004",
-    email: "deborah.johnson@example.com",
-    designation: "Lecturer II",
-    specialization: "Information Technology",
-    assignedCourses: 0,
-    status: "Active",
-  },
-  {
-    id: "5",
-    name: "Mr. Joseph Ojo",
-    staffId: "EDU/STAFF/005",
-    email: "joseph.ojo@example.com",
-    designation: "Assistant Lecturer",
-    specialization: "Artificial Intelligence",
-    assignedCourses: 2,
-    status: "Active",
-  },
-  {
-    id: "6",
-    name: "Dr. Esther Adebayo",
-    staffId: "EDU/STAFF/006",
-    email: "esther.adebayo@example.com",
-    designation: "Senior Lecturer",
-    specialization: "Software Architecture",
-    assignedCourses: 0,
-    status: "On Leave",
-  },
-  {
-    id: "7",
-    name: "Mr. Daniel Olawale",
-    staffId: "EDU/STAFF/007",
-    email: "daniel.olawale@example.com",
-    designation: "Lecturer I",
-    specialization: "Computer Security",
-    assignedCourses: 2,
-    status: "Inactive",
-  },
-];
+interface StaffStatistics {
+  total_staff: number;
+  active_staff: number;
+  inactive_staff: number;
+  staff_on_leave: number;
+  unassigned_staff: number;
+  total_assigned_courses: number;
+}
+
+
 
 const designations = [
   "Professor",
@@ -113,59 +55,102 @@ const statusStyles: Record<StaffStatus, string> = {
   Inactive: "bg-slate-100 text-slate-600",
 };
 
+const statusFromApi: Record<string, StaffStatus> = {
+  ACTIVE: "Active",
+  ON_LEAVE: "On Leave",
+  INACTIVE: "Inactive",
+};
+const statusToApiValue: Record<string, string> = {
+  Active: "ACTIVE",
+  "On Leave": "ON_LEAVE",
+  Inactive: "INACTIVE",
+};
 export default function Staff() {
-  const [staff] = useState<StaffMember[]>(mockStaff);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+
+const [statistics, setStatistics] = useState<StaffStatistics>({
+  total_staff: 0,
+  active_staff: 0,
+  inactive_staff: 0,
+  staff_on_leave: 0,
+  unassigned_staff: 0,
+  total_assigned_courses: 0,
+});
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDesignation, setSelectedDesignation] =
     useState("All Designations");
   const [selectedStatus, setSelectedStatus] =
     useState("All Statuses");
+    useEffect(() => {
+  const fetchStaffOverview = async () => {
+    try {
+      const response = await getHodStaffOverview();
 
+      console.log("HOD STAFF OVERVIEW:", response);
+
+      if (response.success) {
+        setStatistics(response.data.statistics);
+      }
+    } catch (error) {
+      console.error("FAILED TO FETCH STAFF OVERVIEW:", error);
+    }
+  };
+
+  fetchStaffOverview();
+}, []);
+
+useEffect(() => {
+  const fetchStaffDirectory = async () => {
+    try {
+      const response = await getHodStaff({
+        status:
+          selectedStatus === "All Statuses"
+            ? undefined
+            : statusToApiValue[selectedStatus],
+
+        designation:
+          selectedDesignation === "All Designations"
+            ? undefined
+            : selectedDesignation,
+      });
+
+      console.log("FILTERED HOD STAFF DIRECTORY:", response);
+
+      if (response.success) {
+        const mappedStaff: StaffMember[] = response.data.staff.map(
+          (member: any) => ({
+            id: member.id,
+            name: member.full_name,
+            staffId: member.staff_number,
+            email: member.email,
+            designation: member.designation,
+            specialization: member.specialization,
+            assignedCourses: member.course_count,
+            status: statusFromApi[member.status] ?? "Inactive",
+          })
+        );
+
+        setStaff(mappedStaff);
+      }
+    } catch (error) {
+      console.error("FAILED TO FETCH STAFF DIRECTORY:", error);
+    }
+  };
+
+  fetchStaffDirectory();
+}, [selectedStatus, selectedDesignation]);
   const filteredStaff = useMemo(() => {
-    return staff.filter((member) => {
-      const search = searchTerm.toLowerCase().trim();
+  const search = searchTerm.toLowerCase().trim();
 
-      const matchesSearch =
-        !search ||
-        member.name.toLowerCase().includes(search) ||
-        member.staffId.toLowerCase().includes(search) ||
-        member.email.toLowerCase().includes(search);
-
-      const matchesDesignation =
-        selectedDesignation === "All Designations" ||
-        member.designation === selectedDesignation;
-
-      const matchesStatus =
-        selectedStatus === "All Statuses" ||
-        member.status === selectedStatus;
-
-      return (
-        matchesSearch &&
-        matchesDesignation &&
-        matchesStatus
-      );
-    });
-  }, [staff, searchTerm, selectedDesignation, selectedStatus]);
-
-  const activeCount = staff.filter(
-    (member) => member.status === "Active"
-  ).length;
-
-  const leaveCount = staff.filter(
-    (member) => member.status === "On Leave"
-  ).length;
-
-  const unassignedCount = staff.filter(
-    (member) =>
-      member.status === "Active" &&
-      member.assignedCourses === 0
-  ).length;
-
-  const totalAssignments = staff.reduce(
-    (total, member) => total + member.assignedCourses,
-    0
-  );
-
+  return staff.filter((member) => {
+    return (
+      !search ||
+      member.name.toLowerCase().includes(search) ||
+      member.staffId.toLowerCase().includes(search) ||
+      member.email.toLowerCase().includes(search)
+    );
+  });
+}, [staff, searchTerm]);
   const resetFilters = () => {
     setSearchTerm("");
     setSelectedDesignation("All Designations");
@@ -211,7 +196,7 @@ export default function Staff() {
             </div>
           </div>
           <h2 className="mt-3 text-3xl font-semibold text-[#14263F]">
-            {staff.length}
+            {statistics.total_staff}
           </h2>
           <p className="mt-2 text-xs text-slate-400">
             Departmental staff records
@@ -226,7 +211,7 @@ export default function Staff() {
             </div>
           </div>
           <h2 className="mt-3 text-3xl font-semibold text-[#14263F]">
-            {activeCount}
+            {statistics.active_staff}
           </h2>
           <p className="mt-2 text-xs text-slate-400">
             Currently active
@@ -241,7 +226,7 @@ export default function Staff() {
             </div>
           </div>
           <h2 className="mt-3 text-3xl font-semibold text-[#14263F]">
-            {leaveCount}
+            {statistics.staff_on_leave}
           </h2>
           <p className="mt-2 text-xs text-slate-400">
             Currently on leave
@@ -256,7 +241,7 @@ export default function Staff() {
             </div>
           </div>
           <h2 className="mt-3 text-3xl font-semibold text-[#14263F]">
-            {unassignedCount}
+            {statistics.unassigned_staff}
           </h2>
           <p className="mt-2 text-xs text-slate-400">
             Active staff without course assignments
@@ -284,7 +269,7 @@ export default function Staff() {
         <div className="flex items-center gap-5">
           <div>
             <p className="text-2xl font-semibold text-[#14263F]">
-              {totalAssignments}
+              {statistics.total_assigned_courses}
             </p>
             <p className="text-xs text-slate-400">
               Assigned courses

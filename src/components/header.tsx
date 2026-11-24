@@ -22,19 +22,6 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const navigate = useNavigate();
 
   // Temporary mock data
-  const departmentUser = {
-    first_name: "Samuel",
-    last_name: "Adeyemi",
-    department: "Department of Software Engineering",
-    designation: "Head of Department",
-  };
-
-  const departmentName = [
-    departmentUser.first_name,
-    departmentUser.last_name,
-  ]
-    .filter(Boolean)
-    .join(" ");
 
   const today = new Date();
 
@@ -87,16 +74,14 @@ export default function Header({ onMenuClick }: HeaderProps) {
           <div>
             <div className="flex items-baseline gap-1.5">
               <p className="font-sans text-white/70 text-sm">
-                Welcome,
+                Welcome
               </p>
 
-              <p className="font-serif font-semibold text-white text-sm md:text-lg lg:text-lg leading-none">
-                {departmentName}
-              </p>
+             
             </div>
 
             <p className="font-mono text-white/60 text-xs mt-1">
-              {departmentUser.designation} · {formattedDate}
+             {formattedDate}
             </p>
           </div>
         </div>

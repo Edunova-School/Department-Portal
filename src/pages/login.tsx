@@ -1,6 +1,8 @@
 
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
+import logo from "../assets/EDUNOVA VERTICAL.webp";
+
 import {
   Eye,
   EyeOff,
@@ -8,13 +10,15 @@ import {
   LockKeyhole,
   LoaderCircle,
   AlertCircle,
-  Building2,
 } from "lucide-react";
+
+import { hodLogin, setSession } from "../lib/api";
 
 type FormErrors = {
   email?: string;
   password?: string;
 };
+
 const validateEmail = (email: string): string => {
   const value = email.trim();
 
@@ -40,6 +44,7 @@ const validatePassword = (password: string): string => {
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
+
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -79,40 +84,58 @@ export default function Login() {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setSubmitError("");
+const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  event.preventDefault();
+  setSubmitError("");
 
-    if (!validateForm()) return;
+  if (!validateForm()) return;
 
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-await new Promise((resolve) => setTimeout(resolve, 1000));
+    const response = await hodLogin({
+      email: form.email.trim(),
+      password: form.password,
+    });
 
-sessionStorage.setItem(
-  "department_token",
-  "department_demo_session"
-);
+    console.log("HOD LOGIN RESPONSE:", response);
 
-const destination = location.state?.from?.pathname || "/";
+    const accessToken = response?.data?.access_token;
+    const refreshToken = response?.data?.refresh_token;
 
-navigate(destination, { replace: true });
-    } catch {
-      setSubmitError("Unable to sign in. Please try again.");
-    } finally {
-      setLoading(false);
+    if (!response?.success || !accessToken || !refreshToken) {
+      throw new Error(
+        response?.message || "Login response did not contain valid tokens."
+      );
     }
-  };
 
+    setSession(accessToken, "hod", refreshToken);
+
+    const destination =
+      location.state?.from?.pathname || "/";
+
+    navigate(destination, { replace: true });
+
+  } catch (err) {
+    console.error("HOD LOGIN ERROR:", err);
+
+    setSubmitError(
+      err instanceof Error
+        ? err.message
+        : "Unable to sign in. Please check your details and try again."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
       <div className="w-full max-w-md">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          {/* Heading */}
+
           <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#14263F] text-[#B8901F]">
-              <Building2 size={28} />
+            <div className="mx-auto mb-4 flex h-20  items-center justify-center  text-[#B8901F]">
+              <img src={logo} alt="Edunova Logo" className="h-20 w-auto"  />
             </div>
 
             <h1 className="text-3xl font-bold tracking-tight text-slate-900">
@@ -125,6 +148,7 @@ navigate(destination, { replace: true });
           </div>
 
           <form onSubmit={handleSubmit} noValidate className="space-y-5">
+
             <div>
               <label
                 htmlFor="email"
@@ -174,7 +198,6 @@ navigate(destination, { replace: true });
               )}
             </div>
 
-            {/* Password */}
             <div>
               <label
                 htmlFor="password"
@@ -226,6 +249,7 @@ navigate(destination, { replace: true });
                 </p>
               )}
             </div>
+
             <div className="flex items-center justify-between gap-3">
               <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
                 <input
@@ -245,7 +269,6 @@ navigate(destination, { replace: true });
               </Link>
             </div>
 
-            {/* Error */}
             {submitError && (
               <div
                 role="alert"
@@ -256,7 +279,6 @@ navigate(destination, { replace: true });
               </div>
             )}
 
-            {/* Submit */}
             <button
               type="submit"
               disabled={loading}
@@ -286,6 +308,7 @@ navigate(destination, { replace: true });
           <p className="mt-6 border-t border-slate-100 pt-5 text-center text-xs text-slate-400">
             EduNova Department Portal
           </p>
+
         </div>
       </div>
     </div>

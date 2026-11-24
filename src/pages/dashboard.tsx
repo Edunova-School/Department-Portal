@@ -1,4 +1,5 @@
 
+import { useEffect, useState } from "react";
 import {
   Users,
   UserRound,
@@ -6,119 +7,44 @@ import {
   FileCheck2,
   ArrowUpRight,
   ClipboardList,
-  GraduationCap,
-  Megaphone,
   ChevronRight,
   Activity,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { getHodDashboard } from "../lib/api";
+interface DashboardProgramme {
+  programme_id: string;
+  programme_code: string;
+  programme_name: string;
+  student_count: number;
+}
 
-const stats = [
-  {
-    title: "Total Students",
-    value: "1,248",
-    description: "Across all academic levels",
-    icon: Users,
-    iconBg: "bg-blue-50",
-    iconColor: "text-blue-700",
-  },
-  {
-    title: "Academic Staff",
-    value: "32",
-    description: "Assigned to this department",
-    icon: UserRound,
-    iconBg: "bg-purple-50",
-    iconColor: "text-purple-700",
-  },
-  {
-    title: "Department Courses",
-    value: "46",
-    description: "Across all programmes",
-    icon: BookOpen,
-    iconBg: "bg-amber-50",
-    iconColor: "text-amber-700",
-  },
-  {
-    title: "Pending Results",
-    value: "08",
-    description: "Awaiting departmental review",
-    icon: FileCheck2,
-    iconBg: "bg-red-50",
-    iconColor: "text-red-600",
-  },
-];
+interface DashboardData {
+  department: {
+    id: string;
+    name: string;
+    code: string;
+  };
 
-const pendingActions = [
-  {
-    title: "Results awaiting review",
-    description: "8 result submissions require your attention.",
-    count: "08",
-    icon: FileCheck2,
-    color: "text-amber-700",
-    bg: "bg-amber-50",
-    path: "/results",
-  },
-  {
-    title: "Departmental requests",
-    description: "3 requests are awaiting your approval.",
-    count: "03",
-    icon: ClipboardList,
-    color: "text-blue-700",
-    bg: "bg-blue-50",
-    path: "/requests",
-  },
-  {
-    title: "Course registration",
-    description: "12 registrations require attention.",
-    count: "12",
-    icon: GraduationCap,
-    color: "text-purple-700",
-    bg: "bg-purple-50",
-    path: "/registrations",
-  },
-];
+  statistics: {
+    total_students: number;
+    academic_staff: number;
+    department_courses: number;
+    pending_results: number;
+  };
 
-const activities = [
-  {
-    title: "Result submission received",
-    description: "A lecturer submitted results for SWE 201.",
-    time: "Today, 10:42 AM",
-    icon: FileCheck2,
-    color: "text-blue-700",
-    bg: "bg-blue-50",
-  },
-  {
-    title: "New student registration",
-    description: "A student completed departmental registration.",
-    time: "Today, 9:15 AM",
-    icon: Users,
-    color: "text-green-700",
-    bg: "bg-green-50",
-  },
-  {
-    title: "Course assignment updated",
-    description: "A course was assigned to an academic staff member.",
-    time: "Yesterday, 3:30 PM",
-    icon: BookOpen,
-    color: "text-purple-700",
-    bg: "bg-purple-50",
-  },
-  {
-    title: "Departmental announcement",
-    description: "A new announcement was published.",
-    time: "Yesterday, 11:20 AM",
-    icon: Megaphone,
-    color: "text-amber-700",
-    bg: "bg-amber-50",
-  },
-];
+  pending_actions: {
+    departmental_requests: number;
+    results_awaiting_review: number;
+  };
 
-const programmes = [
-  { name: "B.Sc. Software Engineering", students: 520, percentage: 100 },
-  { name: "B.Sc. Computer Science", students: 438, percentage: 84 },
-  { name: "B.Sc. Information Technology", students: 290, percentage: 56 },
-];
+  student_distribution: {
+    total_students: number;
+    programmes: DashboardProgramme[];
+  };
 
+  recent_activities: unknown[];
+}
 const quickLinks = [
   {
     title: "Manage Students",
@@ -147,39 +73,177 @@ const quickLinks = [
 ];
 
 export default function Dashboard() {
-  // const currentDate = new Date().toLocaleDateString("en-US", {
-  //   weekday: "long",
-  //   day: "numeric",
-  //   month: "long",
-  //   year: "numeric",
-  // });
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
+  // ------------------------------------------
+  // FETCH DASHBOARD DATA
+  // ------------------------------------------
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const response = await getHodDashboard();
+
+        if (response.success) {
+          setDashboard(response.data);
+        } else {
+          throw new Error(
+            response.message || "Unable to retrieve dashboard data."
+          );
+        }
+      } catch (err) {
+        console.error("HOD DASHBOARD ERROR:", err);
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Something went wrong while loading the dashboard."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboard();
+  }, []);
+
+  // ------------------------------------------
+  // LOADING STATE
+  // ------------------------------------------
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[300px] items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-[#14263F]" />
+          <p className="mt-3 text-sm text-gray-500">
+            Loading dashboard...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ------------------------------------------
+  // ERROR STATE
+  // ------------------------------------------
+
+  if (error || !dashboard) {
+    return (
+      <div className="rounded-xl border border-red-100 bg-white p-8 text-center">
+        <p className="font-semibold text-red-600">
+          Unable to load dashboard
+        </p>
+
+        <p className="mt-2 text-sm text-gray-500">
+          {error || "Dashboard data is unavailable."}
+        </p>
+      </div>
+    );
+  }
+  const stats = [
+    {
+      title: "Total Students",
+      value: dashboard.statistics.total_students,
+      description: "Across all academic levels",
+      icon: Users,
+      iconBg: "bg-blue-50",
+      iconColor: "text-blue-700",
+    },
+    {
+      title: "Academic Staff",
+      value: dashboard.statistics.academic_staff,
+      description: "Assigned to this department",
+      icon: UserRound,
+      iconBg: "bg-purple-50",
+      iconColor: "text-purple-700",
+    },
+    {
+      title: "Department Courses",
+      value: dashboard.statistics.department_courses,
+      description: "Across all programmes",
+      icon: BookOpen,
+      iconBg: "bg-amber-50",
+      iconColor: "text-amber-700",
+    },
+    {
+      title: "Pending Results",
+      value: dashboard.statistics.pending_results,
+      description: "Awaiting departmental review",
+      icon: FileCheck2,
+      iconBg: "bg-red-50",
+      iconColor: "text-red-600",
+    },
+  ];
+  const pendingActions = [
+    {
+      title: "Results awaiting review",
+      description: "Result submissions require your attention.",
+      count: dashboard.pending_actions.results_awaiting_review,
+      icon: FileCheck2,
+      color: "text-amber-700",
+      bg: "bg-amber-50",
+      path: "/results",
+    },
+    {
+      title: "Departmental requests",
+      description: "Requests are awaiting your approval.",
+      count: dashboard.pending_actions.departmental_requests,
+      icon: ClipboardList,
+      color: "text-blue-700",
+      bg: "bg-blue-50",
+      path: "/requests",
+    },
+  ];
+  const programmes = dashboard.student_distribution.programmes ?? [];
+  const totalStudents = dashboard.student_distribution.total_students;
   return (
     <div className="space-y-7 pb-8">
       <section>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-slate-800">
-            Department Statistics
-          </h2>
+          <div>
+            <h2 className="text-base font-semibold text-slate-800">
+              Department Statistics
+            </h2>
+
+            <p className="mt-1 text-xs text-slate-400">
+              {dashboard.department.name} ({dashboard.department.code})
+            </p>
+          </div>
+
           <span className="text-xs text-slate-400">
             Overview
           </span>
         </div>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {stats.map((stat) => {
             const Icon = stat.icon;
+
             return (
-              <div key={stat.title} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div
+                key={stat.title}
+                className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+              >
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-sm text-slate-500">
                       {stat.title}
                     </p>
+
                     <h3 className="mt-3 text-3xl font-semibold tracking-tight text-[#14263F]">
-                      {stat.value}
+                      {stat.value.toLocaleString()}
                     </h3>
                   </div>
-                  <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${stat.iconBg}`}>
+
+                  <div
+                    className={`flex h-11 w-11 items-center justify-center rounded-xl ${stat.iconBg}`}
+                  >
                     <Icon size={21} className={stat.iconColor} />
                   </div>
                 </div>
@@ -199,6 +263,7 @@ export default function Dashboard() {
               <h2 className="font-semibold text-slate-800">
                 Pending Actions
               </h2>
+
               <p className="mt-1 text-xs text-slate-400">
                 Items that require your attention
               </p>
@@ -229,6 +294,7 @@ export default function Dashboard() {
                     <p className="text-sm font-medium text-slate-800">
                       {item.title}
                     </p>
+
                     <p className="mt-1 text-xs text-slate-500">
                       {item.description}
                     </p>
@@ -236,8 +302,9 @@ export default function Dashboard() {
 
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-[#14263F]">
-                      {item.count}
+                      {String(item.count).padStart(2, "0")}
                     </span>
+
                     <ChevronRight
                       size={17}
                       className="text-slate-400"
@@ -248,13 +315,12 @@ export default function Dashboard() {
             })}
           </div>
         </div>
-
-        {/* Programme Overview */}
         <div className="rounded-xl border border-slate-200 bg-white p-5 xl:col-span-2">
           <div className="mb-6">
             <h2 className="font-semibold text-slate-800">
               Student Distribution
             </h2>
+
             <p className="mt-1 text-xs text-slate-400">
               Students across departmental programmes
             </p>
@@ -262,33 +328,48 @@ export default function Dashboard() {
 
           <div className="mb-5">
             <p className="text-3xl font-semibold text-[#14263F]">
-              1,248
+              {totalStudents.toLocaleString()}
             </p>
+
             <p className="mt-1 text-xs text-slate-400">
               Total enrolled students
             </p>
           </div>
 
           <div className="space-y-5">
-            {programmes.map((programme) => (
-              <div key={programme.name}>
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <p className="text-xs font-medium text-slate-600">
-                    {programme.name}
-                  </p>
-                  <span className="shrink-0 text-xs font-semibold text-slate-700">
-                    {programme.students}
-                  </span>
-                </div>
+            {programmes.length > 0 ? (
+              programmes.map((programme) => {
+                const percentage =
+                  totalStudents > 0
+                    ? (programme.student_count / totalStudents) * 100
+                    : 0;
 
-                <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className="h-full rounded-full bg-[#B8901F]"
-                    style={{ width: `${programme.percentage}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+                return (
+                  <div key={programme.programme_id}>
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <p className="text-xs font-medium text-slate-600">
+                        {programme.programme_name}
+                      </p>
+
+                      <span className="shrink-0 text-xs font-semibold text-slate-700">
+                        {programme.student_count.toLocaleString()}
+                      </span>
+                    </div>
+
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-[#B8901F]"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="py-6 text-center text-sm text-gray-400">
+                No programme distribution available.
+              </p>
+            )}
           </div>
 
           <Link
@@ -300,17 +381,17 @@ export default function Dashboard() {
           </Link>
         </div>
       </section>
-
-      {/* Recent Activities */}
       <section className="rounded-xl border border-slate-200 bg-white p-5">
         <div className="mb-5 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
               <Activity size={18} className="text-[#14263F]" />
+
               <h2 className="font-semibold text-slate-800">
                 Recent Activities
               </h2>
             </div>
+
             <p className="mt-1 text-xs text-slate-400">
               Latest activities within your department
             </p>
@@ -325,45 +406,34 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        <div className="divide-y divide-slate-100">
-          {activities.map((activity) => {
-            const Icon = activity.icon;
+        {dashboard.recent_activities.length === 0 ? (
+          <div className="py-10 text-center">
+            <Activity
+              size={25}
+              className="mx-auto text-slate-300"
+            />
 
-            return (
-              <div
-                key={activity.title}
-                className="flex items-center gap-3 py-4 first:pt-0 last:pb-0"
-              >
-                <div
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${activity.bg}`}
-                >
-                  <Icon size={18} className={activity.color} />
-                </div>
+            <p className="mt-3 text-sm font-medium text-slate-600">
+              No recent activities
+            </p>
 
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-slate-800">
-                    {activity.title}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {activity.description}
-                  </p>
-                </div>
-
-                <p className="hidden shrink-0 text-xs text-slate-400 sm:block">
-                  {activity.time}
-                </p>
-              </div>
-            );
-          })}
-        </div>
+            <p className="mt-1 text-xs text-slate-400">
+              Department activities will appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="py-6 text-center text-sm text-slate-500">
+            {dashboard.recent_activities.length} recent activity record(s) retrieved.
+            Activity details will be displayed once their response structure is confirmed.
+          </div>
+        )}
       </section>
-
-      {/* Quick Access */}
       <section>
         <div className="mb-4">
           <h2 className="font-semibold text-slate-800">
             Quick Access
           </h2>
+
           <p className="mt-1 text-xs text-slate-400">
             Frequently used departmental resources
           </p>
@@ -372,7 +442,6 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {quickLinks.map((item) => {
             const Icon = item.icon;
-
             return (
               <Link
                 key={item.title}
